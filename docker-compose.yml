@@ -15,7 +15,7 @@ services:
       context: .
       dockerfile: client/Dockerfile
     ports:
-      - "3000:80"
+      - "7770:80"
     depends_on:
       - server
     restart: unless-stopped
