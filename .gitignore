@@ -17,3 +17,7 @@ backup-*/
 ai-nvr-key
 ai-nvr-key.pub
 ssh_config
+login.json
+client-backup/
+client-extracted/
+client-working-backup.tar.gz
