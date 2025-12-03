@@ -1,0 +1,34 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node",
+        "composite": true,
+        "declaration": true,
+        "baseUrl": ".",
+        "paths": {
+            "@ai-nvr/shared": [
+                "shared/src/index.ts"
+            ]
+        }
+    },
+    "references": [
+        {
+            "path": "./server"
+        },
+        {
+            "path": "./shared"
+        },
+        {
+            "path": "./client"
+        }
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}
