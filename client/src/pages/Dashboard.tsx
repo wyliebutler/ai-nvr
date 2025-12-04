@@ -62,9 +62,9 @@ export function Dashboard() {
                     )}
                 </div>
             ) : (
-                <div className="flex flex-col lg:flex-row gap-2 lg:gap-6 h-[calc(100vh-140px)]">
+                <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-140px)]">
                     {/* Main Feed Area */}
-                    <div className="flex-1 overflow-y-auto pr-2">
+                    <div className="flex-1 lg:overflow-y-auto pr-2">
                         <div className={`grid grid-cols-1 ${feeds.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}>
                             {feeds.map(feed => (
                                 <div key={feed.id} className="space-y-2">
@@ -84,7 +84,7 @@ export function Dashboard() {
                     </div>
 
                     {/* Sidebar */}
-                    <div className="w-full lg:w-80 flex-shrink-0 h-1/3 lg:h-full overflow-hidden">
+                    <div className="w-full lg:w-80 flex-shrink-0 h-96 lg:h-full overflow-hidden">
                         <ActivityLog />
                     </div>
                 </div>
