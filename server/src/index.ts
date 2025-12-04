@@ -20,7 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api', routes);
-app.use('/recordings', express.static('recordings'));
+app.use('/vod', express.static('recordings'));
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { Feed, Recording } from '../lib/types';
-import { Play, Film } from 'lucide-react';
+import { Play, Film, RefreshCw } from 'lucide-react';
 
 export function Recordings() {
     const [feeds, setFeeds] = useState<Feed[]>([]);
@@ -48,6 +48,12 @@ export function Recordings() {
         }
     }
 
+    function handleRefresh() {
+        if (selectedFeedId) {
+            loadRecordings(selectedFeedId);
+        }
+    }
+
     function formatTimestamp(filenameTimestamp: string) {
         try {
             // Format: YYYY-MM-DD_HH-mm-ss
@@ -71,7 +77,16 @@ export function Recordings() {
 
     return (
         <div className="h-full flex flex-col">
-            <h1 className="text-2xl font-bold mb-6 text-text-primary">Recordings</h1>
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold text-text-primary">Recordings</h1>
+                <button
+                    onClick={handleRefresh}
+                    className="btn glass-panel hover:bg-white/10 p-2"
+                    title="Refresh List"
+                >
+                    <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                </button>
+            </div>
 
             <div className="flex-1 flex gap-6 overflow-hidden">
                 {/* Sidebar: Feeds & Recordings List */}
@@ -120,7 +135,7 @@ export function Recordings() {
                     {selectedRecording ? (
                         <div className="w-full h-full flex flex-col">
                             <video
-                                src={`/recordings${selectedRecording.url.replace('/recordings', '')}`}
+                                src={selectedRecording.url}
                                 controls
                                 autoPlay
                                 className="w-full h-full object-contain"

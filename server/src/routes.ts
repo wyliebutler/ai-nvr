@@ -161,7 +161,7 @@ router.get('/feeds/:id/recordings', requireAuth, async (req, res) => {
                 .filter((f: string) => f.endsWith('.mp4'))
                 .map((f: string) => ({
                     filename: f,
-                    url: `/recordings/${feedId}/${f}`,
+                    url: `/vod/${feedId}/${f}`,
                     timestamp: f.replace('.mp4', '')
                 }))
                 .sort((a: any, b: any) => b.filename.localeCompare(a.filename));

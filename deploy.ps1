@@ -39,14 +39,14 @@ tar -czf deploy.tar.gz -C .deploy_tmp .
 Remove-Item .deploy_tmp -Recurse -Force
 
 Write-Host "Ensuring remote directories exist..."
-ssh -F ssh_config ai-nvr "mkdir -p docker/ai-nvr/data docker/ai-nvr/recordings"
+ssh -F ssh_config ai-nvr "mkdir -p /srv/ai-nvr/data /srv/ai-nvr/recordings"
 
 Write-Host "Copying archive to server..."
-scp -F ssh_config deploy.tar.gz ai-nvr:docker/ai-nvr/
+scp -F ssh_config deploy.tar.gz ai-nvr:/srv/ai-nvr/
 
 Write-Host "Extracting and rebuilding on server..."
 # -o for overwrite
-ssh -F ssh_config ai-nvr "cd docker/ai-nvr && rm -rf client server/src && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker compose down && docker system prune -f && docker compose build --no-cache server client && docker compose up -d server client"
+ssh -F ssh_config ai-nvr "cd /srv/ai-nvr && rm -rf client server/src && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker compose down && docker system prune -f && docker compose build --no-cache server client && docker compose up -d server client"
 
 # Cleanup local archive
 Remove-Item deploy.tar.gz -Force
