@@ -64,43 +64,43 @@ export function Feeds() {
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold">Camera Feeds</h1>
+                <h1 className="text-2xl font-bold text-text-primary">Camera Feeds</h1>
                 <button
                     onClick={openAddDialog}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                    className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
                 >
                     <Plus className="w-4 h-4" />
                     Add Feed
                 </button>
             </div>
 
-            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div className="bg-secondary rounded-lg border border-border overflow-hidden">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-700/50">
+                    <thead className="bg-panel">
                         <tr>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">RTSP URL</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4 text-right">Actions</th>
+                            <th className="p-4 text-text-secondary">Name</th>
+                            <th className="p-4 text-text-secondary">RTSP URL</th>
+                            <th className="p-4 text-text-secondary">Status</th>
+                            <th className="p-4 text-right text-text-secondary">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {feeds.length === 0 ? (
                             <tr>
-                                <td className="p-8 text-center text-gray-500" colSpan={4}>
+                                <td className="p-8 text-center text-text-secondary" colSpan={4}>
                                     No feeds configured. Click "Add Feed" to get started.
                                 </td>
                             </tr>
                         ) : (
                             feeds.map(feed => (
-                                <tr key={feed.id} className="border-t border-gray-700 hover:bg-gray-700/30">
-                                    <td className="p-4 font-medium flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-blue-500">
+                                <tr key={feed.id} className="border-t border-border hover:bg-primary/50">
+                                    <td className="p-4 font-medium flex items-center gap-3 text-text-primary">
+                                        <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-accent">
                                             <Video className="w-4 h-4" />
                                         </div>
                                         {feed.name}
                                     </td>
-                                    <td className="p-4 text-gray-400 font-mono text-sm truncate max-w-xs">
+                                    <td className="p-4 text-text-secondary font-mono text-sm truncate max-w-xs">
                                         {feed.rtsp_url}
                                     </td>
                                     <td className="p-4">
@@ -112,14 +112,14 @@ export function Feeds() {
                                         <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => openEditDialog(feed)}
-                                                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                                                className="p-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded transition-colors"
                                                 title="Edit"
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(feed.id)}
-                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-700 rounded transition-colors"
+                                                className="p-2 text-text-secondary hover:text-red-500 hover:bg-primary rounded transition-colors"
                                                 title="Delete"
                                             >
                                                 <Trash2 className="w-4 h-4" />

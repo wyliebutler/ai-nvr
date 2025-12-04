@@ -29,14 +29,14 @@ export function Login() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-            <div className="max-w-md w-full bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-8">
+        <div className="min-h-screen flex items-center justify-center bg-primary px-4 transition-colors duration-300">
+            <div className="max-w-md w-full bg-secondary rounded-lg shadow-xl border border-border p-8 transition-colors duration-300">
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center mb-4">
                         <Video className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-white">Sign In to AI NVR</h1>
-                    <p className="text-gray-400 mt-2">Enter your credentials to continue</p>
+                    <h1 className="text-2xl font-bold text-text-primary">Sign In to AI NVR</h1>
+                    <p className="text-text-secondary mt-2">Enter your credentials to continue</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -47,27 +47,27 @@ export function Login() {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Username
                         </label>
                         <input
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-primary border border-border rounded px-3 py-2 text-text-primary focus:outline-none focus:border-accent transition-colors"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Password
                         </label>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-primary border border-border rounded px-3 py-2 text-text-primary focus:outline-none focus:border-accent transition-colors"
                             required
                         />
                     </div>
@@ -75,7 +75,7 @@ export function Login() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
+                        className="w-full bg-accent hover:bg-accent-hover text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
                     >
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>

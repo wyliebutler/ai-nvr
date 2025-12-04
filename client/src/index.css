@@ -3,14 +3,78 @@
 @tailwind utilities;
 
 @layer base {
+    :root {
+        /* Default (Midnight) */
+        --bg-primary: #111827;
+        /* gray-900 */
+        --bg-secondary: #1f2937;
+        /* gray-800 */
+        --bg-panel: rgba(0, 0, 0, 0.4);
+        --text-primary: #ffffff;
+        --text-secondary: #9ca3af;
+        /* gray-400 */
+        --accent-primary: #2563eb;
+        /* blue-600 */
+        --accent-hover: #3b82f6;
+        /* blue-500 */
+        --accent-glow: rgba(59, 130, 246, 0.2);
+        --border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="cyberpunk"] {
+        --bg-primary: #090014;
+        --bg-secondary: #1a0b2e;
+        --bg-panel: rgba(20, 0, 40, 0.6);
+        --text-primary: #fff0ff;
+        --text-secondary: #d8b4fe;
+        --accent-primary: #d946ef;
+        /* fuchsia-500 */
+        --accent-hover: #e879f9;
+        /* fuchsia-400 */
+        --accent-glow: rgba(217, 70, 239, 0.3);
+        --border-color: rgba(217, 70, 239, 0.2);
+    }
+
+    [data-theme="forest"] {
+        --bg-primary: #051c12;
+        --bg-secondary: #0d2e20;
+        --bg-panel: rgba(0, 20, 10, 0.5);
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --accent-primary: #10b981;
+        /* emerald-500 */
+        --accent-hover: #34d399;
+        /* emerald-400 */
+        --accent-glow: rgba(16, 185, 129, 0.2);
+        --border-color: rgba(16, 185, 129, 0.15);
+    }
+
+    [data-theme="ocean"] {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-panel: rgba(15, 23, 42, 0.6);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-primary: #06b6d4;
+        /* cyan-500 */
+        --accent-hover: #22d3ee;
+        /* cyan-400 */
+        --accent-glow: rgba(6, 182, 212, 0.2);
+        --border-color: rgba(6, 182, 212, 0.15);
+    }
+
     body {
-        @apply bg-gray-900 text-white antialiased;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        @apply antialiased transition-colors duration-300;
     }
 }
 
 @layer components {
     .glass-panel {
-        @apply bg-black/40 backdrop-blur-md border border-white/10 rounded-xl;
+        background-color: var(--bg-panel);
+        border-color: var(--border-color);
+        @apply backdrop-blur-md border rounded-xl;
     }
 
     .btn {
@@ -18,7 +82,13 @@
     }
 
     .btn-primary {
-        @apply bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20;
+        background-color: var(--accent-primary);
+        box-shadow: 0 10px 15px -3px var(--accent-glow);
+        @apply text-white;
+    }
+
+    .btn-primary:hover {
+        background-color: var(--accent-hover);
     }
 
     .btn-danger {
@@ -26,10 +96,19 @@
     }
 
     .input-field {
-        @apply w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors;
+        background-color: var(--bg-panel);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+        @apply w-full border rounded-lg px-4 py-2 placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors;
+    }
+
+    .input-field:focus {
+        border-color: var(--accent-primary);
+        --tw-ring-color: var(--accent-primary);
     }
 
     .label {
-        @apply block text-sm font-medium text-gray-400 mb-1;
+        color: var(--text-secondary);
+        @apply block text-sm font-medium mb-1;
     }
 }

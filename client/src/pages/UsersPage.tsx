@@ -46,20 +46,20 @@ export function UsersPage() {
         }
     }
 
-    if (loading) return <div className="p-8 text-center text-white">Loading users...</div>;
+    if (loading) return <div className="p-8 text-center text-text-primary">Loading users...</div>;
 
     return (
         <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6 text-white">User Management</h1>
+            <h1 className="text-2xl font-bold mb-6 text-text-primary">User Management</h1>
 
             <div className="glass-panel p-6 mb-8">
-                <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center gap-2">
                     <UserPlus size={20} />
                     Add New User
                 </h2>
                 <form onSubmit={handleCreateUser} className="flex gap-4 items-end">
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-white/70 mb-1">Username</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">Username</label>
                         <input
                             type="text"
                             value={newUser.username}
@@ -69,7 +69,7 @@ export function UsersPage() {
                         />
                     </div>
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-white/70 mb-1">Password</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">Password</label>
                         <input
                             type="password"
                             value={newUser.password}
@@ -79,7 +79,7 @@ export function UsersPage() {
                         />
                     </div>
                     <div className="w-32">
-                        <label className="block text-sm font-medium text-white/70 mb-1">Role</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">Role</label>
                         <select
                             value={newUser.role}
                             onChange={e => setNewUser({ ...newUser, role: e.target.value })}
@@ -100,29 +100,29 @@ export function UsersPage() {
                 <table className="w-full text-left">
                     <thead className="bg-white/5">
                         <tr>
-                            <th className="p-4 text-white/70 font-medium">Username</th>
-                            <th className="p-4 text-white/70 font-medium">Role</th>
-                            <th className="p-4 text-white/70 font-medium">Created At</th>
-                            <th className="p-4 text-white/70 font-medium text-right">Actions</th>
+                            <th className="p-4 text-text-secondary font-medium">Username</th>
+                            <th className="p-4 text-text-secondary font-medium">Role</th>
+                            <th className="p-4 text-text-secondary font-medium">Created At</th>
+                            <th className="p-4 text-text-secondary font-medium text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/10">
                         {users.map(user => (
                             <tr key={user.id} className="hover:bg-white/5">
-                                <td className="p-4 text-white font-medium flex items-center gap-2">
-                                    <UserIcon size={16} className="text-white/50" />
+                                <td className="p-4 text-text-primary font-medium flex items-center gap-2">
+                                    <UserIcon size={16} className="text-text-secondary" />
                                     {user.username}
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${user.role === 'admin'
-                                            ? 'bg-purple-500/20 text-purple-300'
-                                            : 'bg-blue-500/20 text-blue-300'
+                                        ? 'bg-purple-500/20 text-purple-300'
+                                        : 'bg-blue-500/20 text-blue-300'
                                         }`}>
                                         {user.role === 'admin' && <Shield size={12} />}
                                         {user.role.toUpperCase()}
                                     </span>
                                 </td>
-                                <td className="p-4 text-white/60 text-sm">
+                                <td className="p-4 text-text-secondary text-sm">
                                     {new Date(user.created_at || Date.now()).toLocaleDateString()}
                                 </td>
                                 <td className="p-4 text-right">

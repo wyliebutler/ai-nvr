@@ -4,6 +4,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+import { useTheme } from '../context/ThemeContext';
+
 interface Feed {
     id: number;
     name: string;
@@ -19,10 +21,12 @@ interface Settings {
     retention_hours?: string;
     motion_sensitivity?: string;
     notification_interval?: string;
+    theme?: string;
 }
 
 export function SettingsPage() {
     const { user } = useAuth();
+    const { setTheme } = useTheme();
     const [feeds, setFeeds] = useState<Feed[]>([]);
     const [settings, setSettings] = useState<Settings>({});
     const [newFeed, setNewFeed] = useState({ name: '', rtsp_url: '' });
@@ -106,7 +110,7 @@ export function SettingsPage() {
                     <ArrowLeft size={20} />
                     Back
                 </Link>
-                <h1 className="text-3xl font-bold text-white">System Settings</h1>
+                <h1 className="text-3xl font-bold text-text-primary">System Settings</h1>
             </header>
 
 
@@ -228,6 +232,26 @@ export function SettingsPage() {
                                             onChange={(e) => setSettings({ ...settings, smtp_pass: e.target.value })}
                                         />
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="label">Theme</label>
+                                    <select
+                                        className="input-field w-full"
+                                        value={settings.theme || 'default'}
+                                        onChange={(e) => {
+                                            const newTheme = e.target.value;
+                                            console.log('SettingsPage: theme changed to', newTheme);
+                                            setSettings({ ...settings, theme: newTheme });
+                                            setTheme(newTheme as any);
+                                        }}
+                                    >
+                                        <option value="default">Midnight (Default)</option>
+                                        <option value="light">Daylight (Light)</option>
+                                        <option value="cyberpunk">Cyberpunk</option>
+                                        <option value="forest">Forest</option>
+                                        <option value="ocean">Ocean</option>
+                                    </select>
                                 </div>
 
                                 <div>

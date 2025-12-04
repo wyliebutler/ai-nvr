@@ -47,18 +47,19 @@ export function SingleFeedView() {
     const wsUrl = `${protocol}//${host}/stream?url=${encodeURIComponent(feed.rtsp_url)}`;
 
     return (
-        <div className={`min-h-screen flex flex-col ${isFullscreen ? 'bg-black' : 'p-6'}`}>
+
+        <div className={`min-h-screen flex flex-col ${isFullscreen ? 'bg-black' : 'p-6 bg-primary transition-colors duration-300'}`}>
             {!isFullscreen && (
                 <header className="flex items-center gap-4 mb-6">
-                    <Link to="/" className="btn glass-panel hover:bg-white/10">
+                    <Link to="/" className="btn glass-panel hover:bg-primary/50 text-text-primary">
                         <ArrowLeft size={20} />
                         Back
                     </Link>
-                    <h1 className="text-2xl font-bold">{feed.name}</h1>
+                    <h1 className="text-2xl font-bold text-text-primary">{feed.name}</h1>
                 </header>
             )}
 
-            <div className={`flex-1 relative flex items-center justify-center overflow-hidden ${!isFullscreen && 'glass-panel'}`}>
+            <div className={`flex-1 relative flex items-center justify-center overflow-hidden ${!isFullscreen && 'glass-panel border border-border'}`}>
                 {/* Transparent click overlay for zoom */}
                 <div
                     className={`absolute inset-0 z-10 ${zoom === 1 ? 'cursor-zoom-in' : 'cursor-zoom-out'}`}
@@ -80,7 +81,7 @@ export function SingleFeedView() {
                     >
                         <ZoomOut size={24} />
                     </button>
-                    <span className="flex items-center text-sm font-mono w-12 justify-center">
+                    <span className="flex items-center text-sm font-mono w-12 justify-center text-white">
                         {Math.round(zoom * 100)}%
                     </span>
                     <button

@@ -71,17 +71,17 @@ export function Recordings() {
 
     return (
         <div className="h-full flex flex-col">
-            <h1 className="text-2xl font-bold mb-6">Recordings</h1>
+            <h1 className="text-2xl font-bold mb-6 text-text-primary">Recordings</h1>
 
             <div className="flex-1 flex gap-6 overflow-hidden">
                 {/* Sidebar: Feeds & Recordings List */}
-                <div className="w-80 flex flex-col gap-4 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                    <div className="p-4 border-b border-gray-700">
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Select Camera</label>
+                <div className="w-80 flex flex-col gap-4 bg-secondary rounded-lg border border-border overflow-hidden">
+                    <div className="p-4 border-b border-border">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">Select Camera</label>
                         <select
                             value={selectedFeedId || ''}
                             onChange={(e) => setSelectedFeedId(Number(e.target.value))}
-                            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-primary border border-border rounded px-3 py-2 text-text-primary focus:outline-none focus:border-accent"
                         >
                             {feeds.map(feed => (
                                 <option key={feed.id} value={feed.id}>{feed.name}</option>
@@ -91,17 +91,17 @@ export function Recordings() {
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         {loading ? (
-                            <div className="text-center text-gray-500 py-4">Loading...</div>
+                            <div className="text-center text-text-secondary py-4">Loading...</div>
                         ) : recordings.length === 0 ? (
-                            <div className="text-center text-gray-500 py-4">No recordings found</div>
+                            <div className="text-center text-text-secondary py-4">No recordings found</div>
                         ) : (
                             recordings.map(rec => (
                                 <button
                                     key={rec.filename}
                                     onClick={() => setSelectedRecording(rec)}
                                     className={`w-full text-left px-3 py-3 rounded flex items-center gap-3 transition-colors ${selectedRecording?.filename === rec.filename
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-gray-300 hover:bg-gray-700'
+                                        ? 'bg-accent text-white'
+                                        : 'text-text-secondary hover:bg-primary'
                                         }`}
                                 >
                                     <Film className="w-4 h-4 flex-shrink-0" />
@@ -116,7 +116,7 @@ export function Recordings() {
                 </div>
 
                 {/* Main: Video Player */}
-                <div className="flex-1 bg-black rounded-lg border border-gray-700 flex items-center justify-center overflow-hidden relative">
+                <div className="flex-1 bg-black rounded-lg border border-border flex items-center justify-center overflow-hidden relative">
                     {selectedRecording ? (
                         <div className="w-full h-full flex flex-col">
                             <video
@@ -130,7 +130,7 @@ export function Recordings() {
                             </div>
                         </div>
                     ) : (
-                        <div className="text-gray-500 flex flex-col items-center gap-2">
+                        <div className="text-text-secondary flex flex-col items-center gap-2">
                             <Play className="w-12 h-12 opacity-50" />
                             <p>Select a recording to play</p>
                         </div>
