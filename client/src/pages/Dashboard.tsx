@@ -62,7 +62,7 @@ export function Dashboard() {
                     )}
                 </div>
             ) : (
-                <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+                <div className="flex flex-col lg:flex-row gap-2 lg:gap-6 h-[calc(100vh-140px)]">
                     {/* Main Feed Area */}
                     <div className="flex-1 overflow-y-auto pr-2">
                         <div className={`grid grid-cols-1 ${feeds.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}>
