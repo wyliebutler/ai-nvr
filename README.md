@@ -30,7 +30,18 @@ A self-hosted Network Video Recorder (NVR) with AI-powered motion detection, ema
 ### Using Docker (Recommended)
 
 1.  Clone the repository:
+    git clone https://github.com/wyliebutler/ai-nvr.git
+    cd ai-nvr
+    ```
+2.  Start the application:
     ```bash
+    docker compose up -d --build
+    ```
+3.  Access the dashboard at `http://localhost:7770`.
+
+### Default Credentials
+
+- **Username**: `admin`
 - **Password**: `admin123`
 
 > [!IMPORTANT]
