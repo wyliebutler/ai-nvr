@@ -74,7 +74,14 @@ export class StreamManager {
         const isRtsp = rtspUrl.startsWith('rtsp');
         // Remove -re for RTSP to process as fast as possible (reduce latency)
         const inputOptions = isRtsp
-            ? ['-rtsp_transport tcp', '-analyzeduration 1000000', '-probesize 5000000']
+            ? [
+                '-rtsp_transport tcp',
+                '-analyzeduration 100000', // Reduce analysis time (100ms)
+                '-probesize 100000',       // Reduce probe size (100KB)
+                '-fflags nobuffer',        // Discard buffered data
+                '-flags low_delay',        // Force low delay
+                '-strict experimental'     // Allow experimental features
+            ]
             : ['-stream_loop -1', '-re'];
 
         const url = rtspUrl.startsWith('file://') ? rtspUrl.replace('file:///', '').replace('file://', '') : rtspUrl;
@@ -82,12 +89,14 @@ export class StreamManager {
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                '-f mpegts', // Output format
-                '-codec:v mpeg1video', // MPEG-1 for JSMpeg compatibility
-                '-b:v 2000k', // Higher bitrate for better quality
-                '-r 25', // 25fps
-                '-bf 0', // No B-frames
-                '-q:v 2', // High quality (1-31, lower = better)
+                '-f mpegts',             // Output format
+                '-codec:v mpeg1video',   // MPEG-1 for JSMpeg compatibility
+                '-b:v 2000k',            // Higher bitrate for better quality
+                '-r 25',                 // 25fps
+                '-bf 0',                 // No B-frames
+                '-q:v 2',                // High quality
+                '-tune zerolatency',     // Tune for zero latency
+                '-preset ultrafast'      // Encode as fast as possible
             ])
             .on('start', (cmdLine) => {
                 console.log('FFmpeg started:', cmdLine);
