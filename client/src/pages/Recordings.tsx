@@ -88,9 +88,9 @@ export function Recordings() {
                 </button>
             </div>
 
-            <div className="flex-1 flex gap-6 overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
                 {/* Sidebar: Feeds & Recordings List */}
-                <div className="w-80 flex flex-col gap-4 bg-secondary rounded-lg border border-border overflow-hidden">
+                <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 bg-secondary rounded-lg border border-border overflow-hidden h-1/3 lg:h-auto">
                     <div className="p-4 border-b border-border">
                         <label className="block text-sm font-medium text-text-secondary mb-2">Select Camera</label>
                         <select
@@ -131,7 +131,7 @@ export function Recordings() {
                 </div>
 
                 {/* Main: Video Player */}
-                <div className="flex-1 bg-black rounded-lg border border-border flex items-center justify-center overflow-hidden relative">
+                <div className="flex-1 bg-black rounded-lg border border-border flex items-center justify-center overflow-hidden relative h-2/3 lg:h-auto">
                     {selectedRecording ? (
                         <div className="w-full h-full flex flex-col">
                             <video
