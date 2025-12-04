@@ -2,6 +2,8 @@
 
 A self-hosted Network Video Recorder (NVR) with AI-powered motion detection, email notifications, and local recording management.
 
+![AI NVR Dashboard](assets/dashboard-preview.png)
+
 ## Features
 
 - **Live Streaming**: View RTSP streams from your IP cameras.
