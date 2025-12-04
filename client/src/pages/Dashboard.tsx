@@ -84,7 +84,7 @@ export function Dashboard() {
                     </div>
 
                     {/* Sidebar */}
-                    <div className="w-full lg:w-80 flex-shrink-0 h-full overflow-hidden">
+                    <div className="w-full lg:w-80 flex-shrink-0 h-1/3 lg:h-full overflow-hidden">
                         <ActivityLog />
                     </div>
                 </div>
