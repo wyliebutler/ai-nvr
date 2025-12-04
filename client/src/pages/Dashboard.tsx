@@ -62,25 +62,31 @@ export function Dashboard() {
                     )}
                 </div>
             ) : (
-                <div className="space-y-8">
-                    <div className={`grid grid-cols-1 ${feeds.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}>
-                        {feeds.map(feed => (
-                            <div key={feed.id} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="font-medium truncate text-white">{feed.name}</h3>
-                                    <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                                        ID: {feed.id}
-                                    </span>
+                <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+                    {/* Main Feed Area */}
+                    <div className="flex-1 overflow-y-auto pr-2">
+                        <div className={`grid grid-cols-1 ${feeds.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}>
+                            {feeds.map(feed => (
+                                <div key={feed.id} className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-medium truncate text-white">{feed.name}</h3>
+                                        <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                                            ID: {feed.id}
+                                        </span>
+                                    </div>
+                                    <LivePlayer
+                                        url={`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/stream?url=${encodeURIComponent(feed.rtsp_url)}`}
+                                        className="aspect-video shadow-lg rounded-lg overflow-hidden bg-black"
+                                    />
                                 </div>
-                                <LivePlayer
-                                    url={`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/stream?url=${encodeURIComponent(feed.rtsp_url)}`}
-                                    className="aspect-video shadow-lg rounded-lg overflow-hidden bg-black"
-                                />
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
 
-                    <ActivityLog />
+                    {/* Sidebar */}
+                    <div className="w-full lg:w-80 flex-shrink-0 h-full overflow-hidden">
+                        <ActivityLog />
+                    </div>
                 </div>
             )}
         </div>
