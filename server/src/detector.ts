@@ -45,21 +45,21 @@ export class DetectorManager {
 
         const settings = await SettingsModel.getAllSettings();
         const sensitivity = settings.motion_sensitivity || 'medium';
-        let threshold = 0.005; // Default (medium)
+        let threshold = 0.015; // Default (medium)
 
         switch (sensitivity) {
             case 'high':
                 threshold = 0.002;
                 break;
             case 'low':
-                threshold = 0.025; // Lowered from 0.050
+                threshold = 0.05; // Increased from 0.025 (less sensitive)
                 break;
             case 'very_low':
-                threshold = 0.075; // Lowered from 0.150
+                threshold = 0.15; // Increased from 0.075 (much less sensitive)
                 break;
             case 'medium':
             default:
-                threshold = 0.015; // Increased from 0.005
+                threshold = 0.015;
                 break;
         }
 
@@ -108,8 +108,12 @@ export class DetectorManager {
         const now = Date.now();
         const last = this.lastNotification.get(feed.id) || 0;
 
-        // Cooldown: 5 minutes
-        if (now - last > 5 * 60 * 1000) {
+        const settings = await SettingsModel.getAllSettings();
+        // Default to 15 minutes if not set
+        const intervalMinutes = parseInt(settings.notification_interval || '15', 10);
+        const cooldownMs = intervalMinutes * 60 * 1000;
+
+        if (now - last > cooldownMs) {
             console.log(`Motion detected on ${feed.name}! Sending notification...`);
             this.lastNotification.set(feed.id, now);
 

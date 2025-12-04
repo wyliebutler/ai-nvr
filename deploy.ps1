@@ -18,6 +18,12 @@ if (Test-Path .deploy_tmp/server/node_modules) {
     Remove-Item .deploy_tmp/server/node_modules -Recurse -Force
 }
 
+# Copy root files
+Copy-Item -Path "docker-compose.yml" -Destination ".deploy_tmp/"
+Copy-Item -Path "tsconfig.json" -Destination ".deploy_tmp/"
+Copy-Item -Path "package.json" -Destination ".deploy_tmp/"
+Copy-Item -Path "setup-admin.sh" -Destination ".deploy_tmp/"
+
 # Copy client (excluding node_modules)
 # Copy-Item -Exclude is shallow, so we copy everything then delete node_modules
 Copy-Item -Path client/* -Destination .deploy_tmp/client -Recurse
@@ -31,6 +37,9 @@ tar -czf deploy.tar.gz -C .deploy_tmp .
 
 # Cleanup temp
 Remove-Item .deploy_tmp -Recurse -Force
+
+Write-Host "Ensuring remote directories exist..."
+ssh -F ssh_config ai-nvr "mkdir -p docker/ai-nvr/data docker/ai-nvr/recordings"
 
 Write-Host "Copying archive to server..."
 scp -F ssh_config deploy.tar.gz ai-nvr:docker/ai-nvr/

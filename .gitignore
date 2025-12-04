@@ -4,7 +4,10 @@ build/
 .env
 .DS_Store
 coverage/
-recordings/
+recordings/*
+!recordings/.gitkeep
+data/*
+!data/.gitkeep
 server/data/
 temp/
 *.log

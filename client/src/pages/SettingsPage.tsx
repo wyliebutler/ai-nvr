@@ -18,6 +18,7 @@ interface Settings {
     notification_email?: string;
     retention_hours?: string;
     motion_sensitivity?: string;
+    notification_interval?: string;
 }
 
 export function SettingsPage() {
@@ -236,6 +237,7 @@ export function SettingsPage() {
                                         value={settings.motion_sensitivity || 'medium'}
                                         onChange={(e) => setSettings({ ...settings, motion_sensitivity: e.target.value })}
                                     >
+                                        <option value="very_low">Very Low (Least Sensitive)</option>
                                         <option value="low">Low (Less Sensitive)</option>
                                         <option value="medium">Medium (Default)</option>
                                         <option value="high">High (More Sensitive)</option>
@@ -243,6 +245,21 @@ export function SettingsPage() {
                                     <p className="text-xs text-gray-500 mt-1">
                                         Adjust how much motion is required to trigger an alert.
                                         "Low" helps reduce false alarms.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="label">Notification Interval (Minutes)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="input-field w-full"
+                                        value={settings.notification_interval || '15'}
+                                        onChange={(e) => setSettings({ ...settings, notification_interval: e.target.value })}
+                                        placeholder="15"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Minimum time between email notifications for the same camera.
                                     </p>
                                 </div>
 
