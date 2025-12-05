@@ -116,7 +116,7 @@ export function SettingsPage() {
 
 
             {loading && (
-                <div className="text-center py-12 text-white/60">
+                <div className="text-center py-12 text-text-primary/60">
                     Loading settings...
                 </div>
             )}
@@ -140,13 +140,13 @@ export function SettingsPage() {
                     <div className="grid gap-8">
                         {/* Feeds Section */}
                         <section className="glass-panel p-6">
-                            <h2 className="text-xl font-bold mb-4 text-white">Camera Feeds</h2>
+                            <h2 className="text-xl font-bold mb-4 text-text-primary">Camera Feeds</h2>
 
                             <div className="space-y-4 mb-6">
                                 {feeds.map((feed) => (
                                     <div key={feed.id} className="flex items-center justify-between bg-black/20 p-4 rounded">
                                         <div>
-                                            <h3 className="font-semibold text-white">{feed.name}</h3>
+                                            <h3 className="font-semibold text-text-primary">{feed.name}</h3>
                                             <p className="text-sm text-gray-400 truncate max-w-md">{feed.rtsp_url}</p>
                                         </div>
                                         <button
@@ -191,7 +191,7 @@ export function SettingsPage() {
 
                         {/* System Configuration */}
                         <section className="glass-panel p-6">
-                            <h2 className="text-xl font-bold mb-4 text-white">Configuration</h2>
+                            <h2 className="text-xl font-bold mb-4 text-text-primary">Configuration</h2>
                             <form onSubmit={handleSaveSettings} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>

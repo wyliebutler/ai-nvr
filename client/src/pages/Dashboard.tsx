@@ -29,7 +29,7 @@ export function Dashboard() {
         }
     }
 
-    if (loading) return <div className="p-8 text-center text-white">Loading feeds...</div>;
+    if (loading) return <div className="p-8 text-center text-text-primary">Loading feeds...</div>;
 
     if (error) {
         return (
@@ -39,7 +39,7 @@ export function Dashboard() {
                 <p className="text-sm opacity-75">{error}</p>
                 <button
                     onClick={loadFeeds}
-                    className="mt-4 px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 text-white transition-colors"
+                    className="mt-4 px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 text-text-primary transition-colors"
                 >
                     Retry
                 </button>
@@ -49,12 +49,12 @@ export function Dashboard() {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-6 text-white">Live Dashboard</h1>
+            <h1 className="text-2xl font-bold mb-6 text-text-primary">Live Dashboard</h1>
 
             {feeds.length === 0 ? (
                 <div className="text-center py-12 glass-panel">
-                    <h3 className="text-xl text-white mb-2">No cameras configured</h3>
-                    <p className="text-white/60 mb-6">Add your first camera feed to get started.</p>
+                    <h3 className="text-xl text-text-primary mb-2">No cameras configured</h3>
+                    <p className="text-text-primary/60 mb-6">Add your first camera feed to get started.</p>
                     {user?.role === 'admin' && (
                         <button onClick={() => navigate('/settings')} className="btn btn-primary">
                             Go to Settings
@@ -69,7 +69,7 @@ export function Dashboard() {
                             {feeds.map(feed => (
                                 <div key={feed.id} className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium truncate text-white">{feed.name}</h3>
+                                        <h3 className="font-medium truncate text-text-primary">{feed.name}</h3>
                                         <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
                                             ID: {feed.id}
                                         </span>
