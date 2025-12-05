@@ -76,7 +76,7 @@ export function Recordings() {
     }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col max-h-[calc(100vh-6rem)] lg:max-h-[calc(100vh-4rem)]">
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-text-primary">Recordings</h1>
                 <button
