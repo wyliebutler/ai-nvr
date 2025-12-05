@@ -8,13 +8,9 @@ import path from 'path';
 import http from 'http';
 
 import { initDB } from './db';
+import { AuthModel } from './auth';
 
 const PORT = process.env.PORT || 7000;
-
-// Initialize Database
-initDB().then(() => {
-    console.log('Database initialized');
-});
 
 // Create HTTP Server (needed for WS)
 const server = http.createServer(app);
@@ -27,9 +23,11 @@ const streamManager = new StreamManager(wss);
 const recorderManager = new RecorderManager();
 const detectorManager = new DetectorManager();
 
-// Create admin user if not exists
-import { AuthModel } from './auth';
-setTimeout(async () => {
+// Initialize Database
+initDB().then(async () => {
+    console.log('Database initialized');
+
+    // Create default admin user if not exists
     try {
         const users = await AuthModel.getAllUsers();
         if (users.length === 0) {
@@ -44,7 +42,14 @@ setTimeout(async () => {
     } catch (err) {
         console.error('Failed to check/create default admin:', err);
     }
-}, 1000);
+
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}).catch(err => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+});
 
 // Log cleanup interval
 const LOGS_DIR = path.resolve(__dirname, '../logs');
@@ -69,6 +74,5 @@ function cleanupLogs() {
 }
 setInterval(cleanupLogs, 24 * 60 * 60 * 1000);
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+// Server listener moved inside initDB().then()
