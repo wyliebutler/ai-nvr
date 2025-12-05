@@ -41,16 +41,16 @@ export function Layout() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-gray-100 flex">
+        <div className="min-h-screen bg-primary text-text-primary flex">
             {/* Mobile Header */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 border-b border-gray-800 z-50 flex items-center justify-between px-4">
+            <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-primary border-b border-border z-50 flex items-center justify-between px-4">
                 <div className="flex items-center gap-3">
-                    <Video className="w-6 h-6 text-blue-500" />
+                    <Video className="w-6 h-6 text-accent" />
                     <span className="font-bold text-xl">AI NVR</span>
                 </div>
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                    className="p-2 hover:bg-secondary rounded-lg transition-colors"
                 >
                     {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                 </button>
@@ -66,12 +66,12 @@ export function Layout() {
 
             {/* Sidebar */}
             <aside className={`
-                fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 flex flex-col
+                fixed lg:static inset-y-0 left-0 z-50 w-64 bg-primary border-r border-border flex flex-col
                 transform transition-transform duration-200 ease-in-out
                 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                <div className="p-6 flex items-center gap-3 border-b border-gray-800 hidden lg:flex">
-                    <Video className="w-8 h-8 text-blue-500" />
+                <div className="p-6 flex items-center gap-3 border-b border-border hidden lg:flex">
+                    <Video className="w-8 h-8 text-accent" />
                     <span className="font-bold text-xl">AI NVR</span>
                 </div>
 
@@ -84,8 +84,8 @@ export function Layout() {
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className={({ isActive }) =>
                                     `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                        ? 'bg-accent text-white shadow-lg shadow-accent/20'
+                                        : 'text-text-secondary hover:bg-secondary hover:text-text-primary'
                                     }`
                                 }
                             >
@@ -96,7 +96,7 @@ export function Layout() {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-gray-800 space-y-2">
+                <div className="p-4 border-t border-border space-y-2">
                     {/* Home/Away Toggle */}
                     <button
                         onClick={toggleSystemMode}
@@ -113,19 +113,19 @@ export function Layout() {
                     </button>
 
                     <div className="flex items-center gap-3 px-4 py-3 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                             <span className="font-bold text-sm">
                                 {user?.username?.[0]?.toUpperCase()}
                             </span>
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{user?.username}</p>
-                            <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                            <p className="text-xs text-text-secondary capitalize">{user?.role}</p>
                         </div>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mt-2"
+                        className="w-full flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors mt-2"
                     >
                         <LogOut className="w-4 h-4" />
                         <span>Sign Out</span>
@@ -134,7 +134,7 @@ export function Layout() {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-auto bg-gray-900 transition-colors duration-300 pt-16 lg:pt-0">
+            <div className="flex-1 overflow-auto bg-primary transition-colors duration-300 pt-16 lg:pt-0">
                 <div className="p-4 lg:p-8 h-full">
                     <Outlet />
                 </div>
