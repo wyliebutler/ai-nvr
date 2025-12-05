@@ -1,70 +1,74 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import http from 'http';
-import { WebSocketServer } from 'ws';
-import { initDB } from './db';
-import routes from './routes';
+import { app } from './app';
 import { StreamManager } from './stream';
 import { RecorderManager } from './recorder';
 import { DetectorManager } from './detector';
-import { NotificationModel } from './notifications';
-import { AuthModel } from './auth';
+import { WebSocketServer } from 'ws';
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
 
-dotenv.config();
+import { initDB } from './db';
 
-const app = express();
 const PORT = process.env.PORT || 7000;
 
-app.use(cors());
-app.use(express.json());
-
-app.use('/api', routes);
-app.use('/vod', express.static('recordings'));
-
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
+// Initialize Database
+initDB().then(() => {
+    console.log('Database initialized');
 });
 
-async function startServer() {
-    try {
-        await initDB();
+// Create HTTP Server (needed for WS)
+const server = http.createServer(app);
 
-        // Check for default admin
-        const userCount = await AuthModel.countUsers();
-        if (userCount === 0) {
-            console.log('No users found. Creating default admin account...');
+// Initialize WS Server
+const wss = new WebSocketServer({ server });
+
+// Initialize Managers
+const streamManager = new StreamManager(wss);
+const recorderManager = new RecorderManager();
+const detectorManager = new DetectorManager();
+
+// Create admin user if not exists
+import { AuthModel } from './auth';
+setTimeout(async () => {
+    try {
+        const users = await AuthModel.getAllUsers();
+        if (users.length === 0) {
+            console.log('No users found. Creating default admin...');
             await AuthModel.createUser({
                 username: 'admin',
-                password: 'admin123',
+                password: 'admin',
                 role: 'admin'
             });
-            console.log('Default admin created: admin / admin123');
+            console.log('Default admin created.');
         }
+    } catch (err) {
+        console.error('Failed to check/create default admin:', err);
+    }
+}, 1000);
 
-        const server = http.createServer(app);
-        const wss = new WebSocketServer({ server });
-        new StreamManager(wss);
-        new RecorderManager();
-        new DetectorManager();
-
-        // Schedule log cleanup every hour
-        setInterval(() => {
-            console.log('Running log cleanup...');
-            NotificationModel.cleanupOldLogs(24).catch(err => console.error('Cleanup failed:', err));
-        }, 60 * 60 * 1000);
-
-        // Run once on startup
-        NotificationModel.cleanupOldLogs(24).catch(err => console.error('Startup cleanup failed:', err));
-
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
+// Log cleanup interval
+const LOGS_DIR = path.resolve(__dirname, '../logs');
+if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
+function cleanupLogs() {
+    const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const now = Date.now();
+    try {
+        const files = fs.readdirSync(LOGS_DIR);
+        for (const file of files) {
+            const filePath = path.join(LOGS_DIR, file);
+            const stat = fs.statSync(filePath);
+            if (now - stat.mtimeMs > MAX_AGE) {
+                fs.unlinkSync(filePath);
+            }
+        }
+    } catch (e) {
+        console.error('Log cleanup failed:', e);
     }
 }
+setInterval(cleanupLogs, 24 * 60 * 60 * 1000);
 
-startServer();
-
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

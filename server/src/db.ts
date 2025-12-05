@@ -54,3 +54,10 @@ export function getDB() {
   }
   return db;
 }
+
+export async function closeDB() {
+  if (db) {
+    await db.close();
+    db = null;
+  }
+}

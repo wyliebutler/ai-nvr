@@ -73,6 +73,7 @@ export class RecorderManager {
                 '-segment_format mp4',
                 '-reset_timestamps 1',
                 '-strftime 1',
+                '-movflags +faststart', // Optimize for web playback (move moov atom to front)
             ])
             .output(path.join(feedDir, '%Y-%m-%d_%H-%M-%S.mp4'))
             .on('start', (cmdLine) => {
