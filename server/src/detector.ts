@@ -28,6 +28,15 @@ export class DetectorManager {
         await this.syncDetectors();
     }
 
+    public async restartAll() {
+        console.log('Restarting all detectors...');
+        for (const [id, command] of this.activeDetectors) {
+            command.kill('SIGKILL');
+        }
+        this.activeDetectors.clear();
+        await this.startDetectionAllFeeds();
+    }
+
     private async startDetectionAllFeeds() {
         const feeds = await FeedModel.getAllFeeds();
         for (const feed of feeds) {

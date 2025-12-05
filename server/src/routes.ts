@@ -198,6 +198,10 @@ router.get('/settings', requireAuth, requireAdmin, async (req, res) => {
 router.post('/settings', requireAuth, requireAdmin, async (req, res) => {
     try {
         const settings = await SettingsModel.updateSettings(req.body);
+
+        // Restart detectors to apply new sensitivity settings
+        await DetectorManager.getInstance().restartAll();
+
         res.json(settings);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update settings' });
