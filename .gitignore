@@ -24,3 +24,8 @@ login.json
 client-backup/
 client-extracted/
 client-working-backup.tar.gz
+.agent/
+.claude/
+.antigravity/
+ai_developer_prompt.md
+gen-token.js
