@@ -18,14 +18,16 @@ const server = http.createServer(app);
 // Initialize WS Server
 const wss = new WebSocketServer({ server });
 
-// Initialize Managers
-const streamManager = new StreamManager(wss);
-const recorderManager = new RecorderManager();
-const detectorManager = new DetectorManager();
+// Initialize Managers (moved inside initDB)
 
 // Initialize Database
 initDB().then(async () => {
     console.log('Database initialized');
+
+    // Initialize Managers
+    const streamManager = new StreamManager(wss);
+    const recorderManager = new RecorderManager();
+    const detectorManager = new DetectorManager();
 
     // Create default admin user if not exists
     try {
