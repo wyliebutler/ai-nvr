@@ -26,8 +26,8 @@ initDB().then(async () => {
 
     // Initialize Managers
     const streamManager = new StreamManager(wss);
-    const recorderManager = new RecorderManager();
-    const detectorManager = new DetectorManager();
+    const recorderManager = RecorderManager.getInstance();
+    const detectorManager = DetectorManager.getInstance();
 
     // Create default admin user if not exists
     try {

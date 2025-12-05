@@ -3,6 +3,8 @@ import { AuthModel, UserSchema } from './auth';
 import { FeedModel, FeedSchema } from './feeds';
 import { SettingsModel } from './settings';
 import { NotificationModel } from './notifications';
+import { DetectorManager } from './detector';
+import { RecorderManager } from './recorder';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 
@@ -114,6 +116,11 @@ router.post('/feeds', requireAuth, requireAdmin, async (req, res) => {
     try {
         const data = FeedSchema.parse(req.body);
         const feed = await FeedModel.createFeed(data);
+
+        // Refresh managers immediately
+        await DetectorManager.getInstance().refresh();
+        await RecorderManager.getInstance().refresh();
+
         res.json(feed);
     } catch (error: any) {
         res.status(400).json({ error: error.message });

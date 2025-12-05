@@ -7,12 +7,25 @@ import fs from 'fs';
 import path from 'path';
 
 export class DetectorManager {
+    private static instance: DetectorManager;
     private activeDetectors: Map<number, ffmpeg.FfmpegCommand> = new Map();
     private lastNotification: Map<number, number> = new Map();
 
-    constructor() {
+    private constructor() {
         this.startDetectionAllFeeds();
         setInterval(() => this.syncDetectors(), 60000);
+    }
+
+    public static getInstance(): DetectorManager {
+        if (!DetectorManager.instance) {
+            DetectorManager.instance = new DetectorManager();
+        }
+        return DetectorManager.instance;
+    }
+
+    public async refresh() {
+        console.log('Refreshing detectors...');
+        await this.syncDetectors();
     }
 
     private async startDetectionAllFeeds() {

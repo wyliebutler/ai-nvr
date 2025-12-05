@@ -11,14 +11,27 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
 }
 
 export class RecorderManager {
+    private static instance: RecorderManager;
     private activeRecordings: Map<number, ffmpeg.FfmpegCommand> = new Map();
 
-    constructor() {
+    private constructor() {
         this.startRecordingAllFeeds();
         // Check for new feeds or changes every minute (simplified)
         setInterval(() => this.syncRecordings(), 60000);
         // Cleanup old files every hour
         setInterval(() => this.cleanupOldRecordings(), 3600 * 1000);
+    }
+
+    public static getInstance(): RecorderManager {
+        if (!RecorderManager.instance) {
+            RecorderManager.instance = new RecorderManager();
+        }
+        return RecorderManager.instance;
+    }
+
+    public async refresh() {
+        console.log('Refreshing recordings...');
+        await this.syncRecordings();
     }
 
     private async startRecordingAllFeeds() {
