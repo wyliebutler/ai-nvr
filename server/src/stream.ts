@@ -65,6 +65,18 @@ export class StreamManager {
         }
     }
 
+    private closeAllClientsForUrl(rtspUrl: string) {
+        const session = this.sessions.get(rtspUrl);
+        if (session) {
+            for (const client of session.clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.close(1011, 'Stream Error'); // 1011: Internal Error
+                }
+            }
+            session.clients.clear();
+        }
+    }
+
     private startStream(rtspUrl: string): StreamSession {
         console.log(`Starting ffmpeg for ${rtspUrl}`);
 
@@ -103,12 +115,16 @@ export class StreamManager {
             })
             .on('error', (err) => {
                 console.error('FFmpeg error:', err.message);
+                this.closeAllClientsForUrl(rtspUrl);
+                this.sessions.delete(rtspUrl);
             })
             .on('stderr', (line) => {
-                console.log(`Stream FFmpeg stderr: ${line}`);
+                // console.log(`Stream FFmpeg stderr: ${line}`);
             })
             .on('end', () => {
                 console.log('FFmpeg process ended');
+                this.closeAllClientsForUrl(rtspUrl);
+                this.sessions.delete(rtspUrl);
             });
 
         const stream = command.pipe();
