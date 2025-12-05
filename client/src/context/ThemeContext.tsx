@@ -17,7 +17,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // Load theme from settings on startup
         const loadTheme = async () => {
             try {
-                const settings = await api.get('/settings');
+                const settings = await api.get('/settings', undefined, { suppressAuthError: true });
                 if (settings.theme) {
                     setThemeState(settings.theme as Theme);
                 }

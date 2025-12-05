@@ -18,7 +18,7 @@ export function Login() {
         setError(null);
 
         try {
-            const data = await api.post('/login', { username, password });
+            const data = await api.post('/login', { username, password }, undefined, { suppressAuthError: true });
             login(data.token, data.user);
             navigate('/');
         } catch (err: any) {

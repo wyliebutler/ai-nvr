@@ -30,6 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsAuthenticated(true);
         }
         setIsLoading(false);
+
+        // Listen for auth errors
+        const handleAuthError = () => {
+            logout();
+        };
+
+        window.addEventListener('auth:unauthorized', handleAuthError);
+        return () => window.removeEventListener('auth:unauthorized', handleAuthError);
     }, []);
 
     const login = (token: string, user: User) => {

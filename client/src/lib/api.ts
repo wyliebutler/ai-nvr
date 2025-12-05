@@ -2,17 +2,23 @@
 const API_URL = '/api';
 
 export const api = {
-    async get(endpoint: string, token?: string) {
+    async get(endpoint: string, token?: string, options: { suppressAuthError?: boolean } = {}) {
         const headers: any = { 'Content-Type': 'application/json' };
         const authToken = token || localStorage.getItem('token');
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
         const res = await fetch(`${API_URL}${endpoint}`, { headers });
+        if (res.status === 401) {
+            if (!options.suppressAuthError) {
+                window.dispatchEvent(new Event('auth:unauthorized'));
+            }
+            throw new Error('Unauthorized');
+        }
         if (!res.ok) throw new Error(await res.text());
         return res.json();
     },
 
-    async post(endpoint: string, body: any, token?: string) {
+    async post(endpoint: string, body: any, token?: string, options: { suppressAuthError?: boolean } = {}) {
         const headers: any = { 'Content-Type': 'application/json' };
         const authToken = token || localStorage.getItem('token');
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -22,6 +28,12 @@ export const api = {
             headers,
             body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+            if (!options.suppressAuthError) {
+                window.dispatchEvent(new Event('auth:unauthorized'));
+            }
+            throw new Error('Unauthorized');
+        }
         if (!res.ok) {
             const error = await res.json().catch(() => ({ error: 'Unknown error' }));
             throw new Error(error.error || 'Request failed');
@@ -29,7 +41,7 @@ export const api = {
         return res.json();
     },
 
-    async put(endpoint: string, body: any, token?: string) {
+    async put(endpoint: string, body: any, token?: string, options: { suppressAuthError?: boolean } = {}) {
         const headers: any = { 'Content-Type': 'application/json' };
         const authToken = token || localStorage.getItem('token');
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -39,6 +51,12 @@ export const api = {
             headers,
             body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+            if (!options.suppressAuthError) {
+                window.dispatchEvent(new Event('auth:unauthorized'));
+            }
+            throw new Error('Unauthorized');
+        }
         if (!res.ok) {
             const error = await res.json().catch(() => ({ error: 'Unknown error' }));
             throw new Error(error.error || 'Request failed');
@@ -46,7 +64,7 @@ export const api = {
         return res.json();
     },
 
-    async delete(endpoint: string, token?: string) {
+    async delete(endpoint: string, token?: string, options: { suppressAuthError?: boolean } = {}) {
         const headers: any = { 'Content-Type': 'application/json' };
         const authToken = token || localStorage.getItem('token');
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -55,6 +73,12 @@ export const api = {
             method: 'DELETE',
             headers,
         });
+        if (res.status === 401) {
+            if (!options.suppressAuthError) {
+                window.dispatchEvent(new Event('auth:unauthorized'));
+            }
+            throw new Error('Unauthorized');
+        }
         if (!res.ok) {
             const error = await res.json().catch(() => ({ error: 'Unknown error' }));
             throw new Error(error.error || 'Request failed');
