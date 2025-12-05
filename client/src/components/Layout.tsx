@@ -1,141 +1,140 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Video, Film, LogOut, Settings, Users, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Video, LogOut, Settings, Users, Menu, X, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 
 export function Layout() {
     const { logout, user } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [systemMode, setSystemMode] = useState<'home' | 'away'>('away');
 
-    const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-    const closeMenu = () => setIsMobileMenuOpen(false);
+    useEffect(() => {
+        // Fetch initial system mode
+        api.get('/settings').then(settings => {
+            if (settings.system_mode) {
+                setSystemMode(settings.system_mode);
+            }
+        }).catch(console.error);
+    }, []);
+
+    const toggleSystemMode = async () => {
+        const newMode = systemMode === 'home' ? 'away' : 'home';
+        try {
+            await api.post('/settings', { system_mode: newMode });
+            setSystemMode(newMode);
+        } catch (error) {
+            console.error('Failed to update system mode:', error);
+        }
+    };
+
+    const navItems = [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Video, label: 'Recordings', path: '/recordings' },
+        { icon: Settings, label: 'Settings', path: '/settings' },
+        { icon: Users, label: 'Users', path: '/users', adminOnly: true },
+    ];
+
+    const handleLogout = () => {
+        logout();
+        setIsMobileMenuOpen(false);
+    };
 
     return (
-        <div className="flex h-screen bg-primary text-text-primary transition-colors duration-300 overflow-hidden">
+        <div className="min-h-screen bg-gray-900 text-gray-100 flex">
             {/* Mobile Header */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-secondary border-b border-border flex items-center justify-between px-4 z-40">
-                <div className="flex items-center gap-2 font-bold text-lg">
-                    <Video className="w-6 h-6 text-accent" />
-                    AI NVR
+            <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 border-b border-gray-800 z-50 flex items-center justify-between px-4">
+                <div className="flex items-center gap-3">
+                    <Video className="w-6 h-6 text-blue-500" />
+                    <span className="font-bold text-xl">AI NVR</span>
                 </div>
-                <button onClick={toggleMenu} className="p-2 text-text-secondary hover:text-text-primary">
-                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                 </button>
             </div>
 
-            {/* Sidebar Overlay */}
+            {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={closeMenu}
+                    onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
-            <div className={`
-                fixed inset-y-0 left-0 z-50 w-64 bg-secondary border-r border-border flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0
-                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+            <aside className={`
+                fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 flex flex-col
+                transform transition-transform duration-200 ease-in-out
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                <div className="p-6 border-b border-border hidden lg:block">
-                    <h1 className="text-xl font-bold flex items-center gap-2 text-text-primary">
-                        <Video className="w-6 h-6 text-accent" />
-                        AI NVR
-                    </h1>
+                <div className="p-6 flex items-center gap-3 border-b border-gray-800 hidden lg:flex">
+                    <Video className="w-8 h-8 text-blue-500" />
+                    <span className="font-bold text-xl">AI NVR</span>
                 </div>
 
-                <div className="p-4 border-b border-border lg:hidden flex items-center justify-between">
-                    <h1 className="text-xl font-bold flex items-center gap-2 text-text-primary">
-                        <Video className="w-6 h-6 text-accent" />
-                        Menu
-                    </h1>
-                    <button onClick={closeMenu} className="p-1">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    <NavLink
-                        to="/"
-                        end
-                        onClick={closeMenu}
-                        className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-text-secondary hover:bg-primary hover:text-text-primary'
-                            }`
-                        }
-                    >
-                        <LayoutDashboard className="w-5 h-5" />
-                        Dashboard
-                    </NavLink>
-                    <NavLink
-                        to="/feeds"
-                        onClick={closeMenu}
-                        className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-text-secondary hover:bg-primary hover:text-text-primary'
-                            }`
-                        }
-                    >
-                        <Video className="w-5 h-5" />
-                        Feeds
-                    </NavLink>
-                    <NavLink
-                        to="/recordings"
-                        onClick={closeMenu}
-                        className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-text-secondary hover:bg-primary hover:text-text-primary'
-                            }`
-                        }
-                    >
-                        <Film className="w-5 h-5" />
-                        Recordings
-                    </NavLink>
-                    <NavLink
-                        to="/settings"
-                        onClick={closeMenu}
-                        className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-text-secondary hover:bg-primary hover:text-text-primary'
-                            }`
-                        }
-                    >
-                        <Settings className="w-5 h-5" />
-                        Settings
-                    </NavLink>
-                    {user?.role === 'admin' && (
-                        <NavLink
-                            to="/users"
-                            onClick={closeMenu}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-text-secondary hover:bg-primary hover:text-text-primary'
-                                }`
-                            }
-                        >
-                            <Users className="w-5 h-5" />
-                            Users
-                        </NavLink>
-                    )}
+                <nav className="flex-1 p-4 space-y-2">
+                    {navItems.map((item) => (
+                        (!item.adminOnly || user?.role === 'admin') && (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={({ isActive }) =>
+                                    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                    }`
+                                }
+                            >
+                                <item.icon className="w-5 h-5" />
+                                <span>{item.label}</span>
+                            </NavLink>
+                        )
+                    ))}
                 </nav>
 
-                <div className="p-4 border-t border-border mt-auto">
+                <div className="p-4 border-t border-gray-800 space-y-2">
+                    {/* Home/Away Toggle */}
+                    <button
+                        onClick={toggleSystemMode}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors border ${systemMode === 'home'
+                            ? 'bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50'
+                            : 'bg-yellow-900/30 border-yellow-800 text-yellow-400 hover:bg-yellow-900/50'
+                            }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            {systemMode === 'home' ? <Home className="w-5 h-5" /> : <LogOut className="w-5 h-5" />}
+                            <span className="font-medium">{systemMode === 'home' ? 'Home' : 'Away'}</span>
+                        </div>
+                        <div className={`w-3 h-3 rounded-full ${systemMode === 'home' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    </button>
+
                     <div className="flex items-center gap-3 px-4 py-3 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-white">
-                            {user?.username?.[0]?.toUpperCase() || 'U'}
+                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                            <span className="font-bold text-sm">
+                                {user?.username?.[0]?.toUpperCase()}
+                            </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate text-text-primary">{user?.username}</div>
-                            <div className="text-xs text-text-secondary capitalize">{user?.role}</div>
+                            <p className="text-sm font-medium truncate">{user?.username}</p>
+                            <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
                         </div>
                     </div>
                     <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-text-secondary hover:text-text-primary hover:bg-primary rounded-lg transition-colors"
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mt-2"
                     >
-                        <LogOut className="w-5 h-5" />
-                        Sign Out
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign Out</span>
                     </button>
                 </div>
-            </div>
+            </aside>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-auto bg-primary transition-colors duration-300 pt-16 lg:pt-0">
+            <div className="flex-1 overflow-auto bg-gray-900 transition-colors duration-300 pt-16 lg:pt-0">
                 <div className="p-4 lg:p-8 h-full">
                     <Outlet />
                 </div>

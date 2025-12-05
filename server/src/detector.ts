@@ -155,6 +155,13 @@ export class DetectorManager {
 
     private async sendNotification(feed: any, snapshotPath: string | null) {
         const settings = await SettingsModel.getAllSettings();
+
+        // Check Home/Away mode
+        if (settings.system_mode === 'home') {
+            console.log('System is in Home mode, skipping email notification.');
+            return;
+        }
+
         if (!settings.smtp_host || !settings.notification_email) {
             console.log('SMTP settings not configured, skipping email.');
             return;
