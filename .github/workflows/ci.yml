@@ -10,9 +10,8 @@ jobs:
   backend-test:
     runs-on: ubuntu-latest
     
-    defaults:
-      run:
-        working-directory: ./server
+    # Run from root, but we can set defaults if needed. 
+    # npm ci must run in root for workspaces.
 
     steps:
     - uses: actions/checkout@v4
@@ -22,23 +21,19 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: server/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install dependencies
       run: npm ci
 
     - name: Create data directory
-      run: mkdir -p data
+      run: mkdir -p server/data
 
-    - name: Run tests
-      run: npm test
+    - name: Run Backend tests
+      run: npm test -w server
 
   frontend-test:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ./client
 
     steps:
     - uses: actions/checkout@v4
@@ -48,10 +43,10 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: client/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install dependencies
       run: npm ci
 
-    - name: Run tests
-      run: npm test
+    - name: Run Frontend tests
+      run: npm test -w client
