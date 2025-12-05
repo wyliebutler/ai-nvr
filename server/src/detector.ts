@@ -159,11 +159,13 @@ export class DetectorManager {
         // Check Home/Away mode
         if (settings.system_mode === 'home') {
             console.log('System is in Home mode, skipping email notification.');
+            await NotificationModel.create(feed.id, 'motion', 'Motion');
             return;
         }
 
         if (!settings.smtp_host || !settings.notification_email) {
             console.log('SMTP settings not configured, skipping email.');
+            await NotificationModel.create(feed.id, 'motion', 'Motion');
             return;
         }
 
@@ -195,9 +197,10 @@ export class DetectorManager {
 
             await transporter.sendMail(mailOptions);
             console.log('Notification sent.');
-            await NotificationModel.create(feed.id, 'email', `Motion detected on ${feed.name}`);
+            await NotificationModel.create(feed.id, 'email', 'Motion');
         } catch (error) {
             console.error('Failed to send notification:', error);
+            await NotificationModel.create(feed.id, 'error', 'Email failed');
         }
     }
 }

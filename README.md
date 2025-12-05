@@ -6,11 +6,12 @@ A self-hosted Network Video Recorder (NVR) with AI-powered motion detection, ema
 
 ## Features
 
-- **Live Streaming**: View RTSP streams from your IP cameras.
+- **Live Streaming**: Low-latency RTSP streaming with optimized FFmpeg settings.
 - **Motion Detection**: AI-based motion detection with adjustable sensitivity (Low, Medium, High, Very Low).
-- **Notifications**: Email alerts with snapshots when motion is detected.
+- **Home/Away Mode**: Toggle notification delivery. "Home" mode disables email alerts, while "Away" mode enables them.
+- **Notifications**: Email alerts with snapshots when motion is detected (in Away mode).
+- **Activity Log**: Compact, real-time log of all motion events and system status.
 - **Recording**: Continuous or event-based recording with automatic cleanup (24-hour retention).
-- **Activity Log**: Paginated log of all system events (motion, errors, system status).
 - **User Management**: Role-based access control (Admin/Viewer).
 
 ## Tech Stack

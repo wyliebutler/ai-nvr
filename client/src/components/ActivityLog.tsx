@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Mail, Video, AlertCircle } from 'lucide-react';
 
 interface Notification {
     id: number;
@@ -16,7 +16,7 @@ export function ActivityLog() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const limit = 10;
+    const limit = 20; // Increased limit since items are smaller
 
     const fetchLogs = async () => {
         try {
@@ -35,52 +35,68 @@ export function ActivityLog() {
         fetchLogs();
         const interval = setInterval(fetchLogs, 30000);
         return () => clearInterval(interval);
-    }, [page]); // Re-fetch when page changes
+    }, [page]);
 
     const handlePrev = () => setPage(p => Math.max(1, p - 1));
     const handleNext = () => setPage(p => Math.min(totalPages, p + 1));
 
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'email': return <Mail size={12} className="text-blue-400" />;
+            case 'motion': return <Video size={12} className="text-yellow-400" />;
+            case 'error': return <AlertCircle size={12} className="text-red-400" />;
+            default: return <Video size={12} className="text-gray-400" />;
+        }
+    };
+
+    const getTypeColor = (type: string) => {
+        switch (type) {
+            case 'email': return 'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20';
+            case 'motion': return 'bg-yellow-500/10 border-yellow-500/20 hover:bg-yellow-500/20';
+            case 'error': return 'bg-red-500/10 border-red-500/20 hover:bg-red-500/20';
+            default: return 'bg-white/5 border-white/10 hover:bg-white/10';
+        }
+    };
+
     return (
         <div className="glass-panel h-full flex flex-col">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
+            <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-white">Activity Log</h2>
                 <button
                     onClick={fetchLogs}
-                    className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
+                    className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
                     title="Refresh"
                 >
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {logs.length === 0 ? (
-                    <div className="text-center py-8 text-white/40 text-sm">
+                    <div className="text-center py-8 text-white/40 text-xs">
                         No recent activity
                     </div>
                 ) : (
                     logs.map((log) => (
-                        <div key={log.id} className="bg-white/5 rounded p-3 hover:bg-white/10 transition-colors">
-                            <div className="flex justify-between items-start mb-1">
-                                <span className="text-sm font-medium text-white truncate pr-2">
-                                    {log.feed_name || 'System'}
-                                </span>
-                                <span className="text-xs text-white/50 whitespace-nowrap">
+                        <div
+                            key={log.id}
+                            className={`rounded px-3 py-2 transition-colors border flex items-center gap-3 ${getTypeColor(log.type)}`}
+                        >
+                            <div className="shrink-0 mt-0.5">
+                                {getIcon(log.type)}
+                            </div>
+
+                            <div className="flex-1 min-w-0 flex items-center gap-2 text-xs">
+                                <span className="text-white/50 whitespace-nowrap font-mono">
                                     {new Date(log.created_at + (log.created_at.endsWith('Z') ? '' : 'Z')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
-                            </div>
-                            <p className="text-xs text-white/70 mb-2 line-clamp-2">
-                                {log.message}
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${log.type === 'email'
-                                    ? 'bg-blue-500/20 text-blue-300'
-                                    : 'bg-emerald-500/20 text-emerald-300'
-                                    }`}>
-                                    {log.type}
+                                <span className="text-white/30">•</span>
+                                <span className="font-medium text-white/90 truncate">
+                                    {log.feed_name || 'System'}
                                 </span>
-                                <span className="text-[10px] text-white/30">
-                                    {new Date(log.created_at + (log.created_at.endsWith('Z') ? '' : 'Z')).toLocaleDateString()}
+                                <span className="text-white/30">•</span>
+                                <span className="text-white/70 truncate">
+                                    {log.message.includes('Motion detected') ? 'Motion' : log.message}
                                 </span>
                             </div>
                         </div>
@@ -89,7 +105,7 @@ export function ActivityLog() {
             </div>
 
             {totalPages > 1 && (
-                <div className="p-3 border-t border-white/10 flex justify-between items-center text-xs text-white/50">
+                <div className="p-2 border-t border-white/10 flex justify-between items-center text-[10px] text-white/50">
                     <span>Page {page}</span>
                     <div className="flex gap-1">
                         <button
