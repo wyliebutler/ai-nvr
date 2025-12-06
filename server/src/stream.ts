@@ -1,6 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
+import { MediaProxyService } from './media-proxy';
 
 interface StreamSession {
     ffmpegCommand: ffmpeg.FfmpegCommand;
@@ -52,6 +53,44 @@ export class StreamManager {
         session.clients.add(ws);
     }
 
+    public async stop() {
+        console.log('Stopping all streams...');
+        const promises = [];
+        for (const [url, session] of this.sessions) {
+            promises.push(new Promise<void>((resolve) => {
+                // Set a timeout to force resolve if ffmpeg hangs
+                const timeout = setTimeout(() => {
+                    console.log(`Stream ${url} stop timed out, forcing kill.`);
+                    try {
+                        session.ffmpegCommand.kill('SIGKILL');
+                    } catch (e) { /* ignore if already dead */ }
+                    resolve();
+                }, 2000);
+
+                session.ffmpegCommand.on('end', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+
+                session.ffmpegCommand.on('error', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+
+                try {
+                    session.ffmpegCommand.kill('SIGINT');
+                } catch (e) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            }));
+            this.closeAllClientsForUrl(url);
+        }
+        await Promise.all(promises);
+        this.sessions.clear();
+        console.log('All streams stopped.');
+    }
+
     private removeClientFromStream(rtspUrl: string, ws: WebSocket) {
         const session = this.sessions.get(rtspUrl);
         if (!session) return;
@@ -60,7 +99,7 @@ export class StreamManager {
 
         if (session.clients.size === 0) {
             console.log(`No clients left for ${rtspUrl}, stopping stream.`);
-            session.ffmpegCommand.kill('SIGKILL');
+            session.ffmpegCommand.kill('SIGINT');
             this.sessions.delete(rtspUrl);
         }
     }
@@ -70,7 +109,7 @@ export class StreamManager {
         if (session) {
             for (const client of session.clients) {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.close(1011, 'Stream Error'); // 1011: Internal Error
+                    client.close(1000, 'Stream Stopped'); // Normal closure
                 }
             }
             session.clients.clear();
@@ -83,7 +122,19 @@ export class StreamManager {
         // This is a simplified MSE stream setup. 
         // In a real scenario, we might use jsmpeg-compatible MPEG-TS or fragmented MP4.
         // For this implementation, we'll output MPEG-TS which is easy to handle over WS.
-        const isRtsp = rtspUrl.startsWith('rtsp');
+
+        // Resolve Proxy URL
+        let streamSource = rtspUrl.startsWith('file://') ? rtspUrl.replace('file:///', '').replace('file://', '') : rtspUrl;
+        const isRtsp = streamSource.startsWith('rtsp');
+
+        if (isRtsp) {
+            const proxyUrl = MediaProxyService.getInstance().getProxyUrlByOriginal(rtspUrl);
+            if (proxyUrl) {
+                console.log(`[Stream] Switching ${rtspUrl} to proxy: ${proxyUrl}`);
+                streamSource = proxyUrl;
+            }
+        }
+
         // Remove -re for RTSP to process as fast as possible (reduce latency)
         const inputOptions = isRtsp
             ? [
@@ -96,9 +147,7 @@ export class StreamManager {
             ]
             : ['-stream_loop -1', '-re'];
 
-        const url = rtspUrl.startsWith('file://') ? rtspUrl.replace('file:///', '').replace('file://', '') : rtspUrl;
-
-        const command = ffmpeg(url)
+        const command = ffmpeg(streamSource)
             .inputOptions(inputOptions)
             .outputOptions([
                 '-f mpegts',             // Output format

@@ -9,6 +9,8 @@ import http from 'http';
 
 import { initDB } from './db';
 import { AuthModel } from './auth';
+import { MediaProxyService } from './media-proxy';
+import { FeedModel } from './feeds';
 
 const PORT = process.env.PORT || 7000;
 
@@ -28,6 +30,11 @@ initDB().then(async () => {
     const streamManager = new StreamManager(wss);
     const recorderManager = RecorderManager.getInstance();
     const detectorManager = DetectorManager.getInstance();
+    const mediaProxy = MediaProxyService.getInstance();
+
+    // Initial Proxy Sync
+    const feeds = await FeedModel.getAllFeeds();
+    await mediaProxy.syncConfig(feeds);
 
     // Create default admin user if not exists
     try {
@@ -45,9 +52,29 @@ initDB().then(async () => {
         console.error('Failed to check/create default admin:', err);
     }
 
+    // Server listener moved inside initDB().then()
     server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
+
+    // Graceful Shutdown
+    const shutdown = async (signal: string) => {
+        console.log(`\n${signal} received. Starting graceful shutdown...`);
+        server.close(() => {
+            console.log('HTTP/WS server closed.');
+        });
+
+        await detectorManager.stop();
+        await streamManager.stop();
+        // Recorder manager stop if implemented, or just let process exit kill them
+
+        console.log('Graceful shutdown complete.');
+        process.exit(0);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
 }).catch(err => {
     console.error('Failed to initialize database:', err);
     process.exit(1);
@@ -75,6 +102,3 @@ function cleanupLogs() {
     }
 }
 setInterval(cleanupLogs, 24 * 60 * 60 * 1000);
-
-
-// Server listener moved inside initDB().then()

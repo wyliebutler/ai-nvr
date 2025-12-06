@@ -20,6 +20,18 @@ A self-hosted Network Video Recorder (NVR) with AI-powered motion detection, ema
 - **Backend**: Node.js, Express, SQLite
 - **Video Processing**: FFmpeg
 - **Deployment**: Docker & Docker Compose
+- **RTSP Proxy**: MediaMTX (solves camera connection limits)
+
+## Architecture
+
+This system uses a **Static RTSP Proxy (MediaMTX)** found in `mediamtx.yml` to manage camera connections. 
+
+- **Problem**: Many low-cost IP cameras allow only ~2 concurrent RTSP connections.
+- **Solution**: The NVR uses MediaMTX to maintain a **single** persistent connection to each camera.
+- **Services**: The Recorder, Motion Detector, and Live Player all consume the stream from the local proxy (`rtsp://mediamtx:8554/feed_X`), ensuring the camera is never overloaded.
+
+**Adding Cameras:**
+Currently, new cameras must be manually added to `mediamtx.yml` under the `paths` section to be proxied.
 
 ## Prerequisites
 

@@ -9,6 +9,14 @@ export const FeedSchema = z.object({
 
 export type FeedInput = z.infer<typeof FeedSchema>;
 
+export interface Feed {
+    id: number;
+    name: string;
+    rtsp_url: string;
+    settings: string;
+    created_at?: string;
+}
+
 export const FeedModel = {
     async getAllFeeds() {
         const db = getDB();

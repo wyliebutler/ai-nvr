@@ -2,6 +2,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
 import { FeedModel } from './feeds';
+import { MediaProxyService } from './media-proxy';
 
 const RECORDINGS_DIR = path.resolve(__dirname, '../recordings');
 
@@ -74,19 +75,21 @@ export class RecorderManager {
         const isRtsp = feed.rtsp_url.startsWith('rtsp');
         const inputOptions = isRtsp ? ['-rtsp_transport tcp'] : ['-stream_loop -1', '-re']; // -re for files to simulate realtime
 
-        const url = feed.rtsp_url.startsWith('file://') ? feed.rtsp_url.replace('file:///', '').replace('file://', '') : feed.rtsp_url;
+        const url = feed.rtsp_url.startsWith('file://')
+            ? feed.rtsp_url.replace('file:///', '').replace('file://', '')
+            : MediaProxyService.getInstance().getProxyUrl(feed);
 
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                '-c:v libx264', // Encode to H.264
-                '-vf scale=-1:720', // Scale to 720p, keeping aspect ratio
+                '-c:v copy',            // Direct stream copy for video
+                '-c:a aac',             // Transcode audio to AAC (better compatibility)
                 '-f segment',
-                '-segment_time 1800', // 30 minutes
+                '-segment_time 1800',   // 30 minutes
                 '-segment_format mp4',
                 '-reset_timestamps 1',
                 '-strftime 1',
-                '-movflags +faststart', // Optimize for web playback (move moov atom to front)
+                '-movflags +faststart', // Optimize for web playback
             ])
             .output(path.join(feedDir, '%Y-%m-%d_%H-%M-%S.mp4'))
             .on('start', (cmdLine) => {
