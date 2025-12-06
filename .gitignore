@@ -29,3 +29,5 @@ client-working-backup.tar.gz
 .antigravity/
 ai_developer_prompt.md
 gen-token.js
+server_logs.txt
+*_logs.txt
