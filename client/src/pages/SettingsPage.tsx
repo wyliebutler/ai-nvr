@@ -18,7 +18,7 @@ interface Settings {
     smtp_user?: string;
     smtp_pass?: string;
     notification_email?: string;
-    retention_hours?: string;
+    recording_retention?: string;
     motion_sensitivity?: string;
     notification_interval?: string;
     theme?: string;
@@ -284,6 +284,21 @@ export function SettingsPage() {
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
                                         Minimum time between email notifications for the same camera.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="label">Recording Retention (Hours)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="input-field w-full"
+                                        value={settings.recording_retention || '24'}
+                                        onChange={(e) => setSettings({ ...settings, recording_retention: e.target.value })}
+                                        placeholder="24"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Hours to keep recordings before auto-deletion. Default is 24 hours.
                                     </p>
                                 </div>
 

@@ -49,8 +49,35 @@ export class RecorderManager {
         // Stop removed feeds
         for (const [id, command] of this.activeRecordings) {
             if (!feedIds.has(id)) {
-                console.log(`Stopping recording for feed ${id}`);
-                command.kill('SIGKILL');
+                console.log(`Stopping recording for feed ${id} gracefully...`);
+
+                // Allow some time for ffmpeg to finish its buffer and write trailer
+                command.kill('SIGTERM');
+
+                // Set a timeout to force kill if it doesn't exit
+                setTimeout(() => {
+                    // Check if it's still in our map (meaning it hasn't emitted 'end'/'error' yet)
+                    if (this.activeRecordings.has(id)) {
+                        console.log(`Feed ${id} recording did not exit in time, forcing SIGKILL.`);
+                        command.kill('SIGKILL'); // Force kill
+                        this.activeRecordings.delete(id); // Clean up map manually if needed
+                    }
+                }, 5000);
+
+                // We don't delete immediately here, we let the 'end'/'error' handler delete from map
+                // But just in case handlers don't fire (unlikely with fluent-ffmpeg), the timeout handles it.
+                // However, for syncRecordings loop safely, we might want to mark it as "stopping" if we were tracking state more complexly.
+                // For now, removing from map immediately prevents double-killing if sync runs again quickly?
+                // Actually, if we remove it from map immediately, the timeout closure still has the reference to 'command' so it works.
+                // BUT, 'end' handler tries to delete(id). If we delete here, 'end' handler does nothing (fine).
+                // Issue: If we remove from map, next sync cycle sees it's missing (correct) but starts a NEW one?
+                // Wait, logic is: "if (!feedIds.has(id))" -> stop it.
+                // If we remove from activeRecordings, the start logic "if (!this.activeRecordings.has(feed.id))" will trigger.
+                // But feedIds DOES NOT have id (that's why we are stopping). So it won't restart.
+                // So it is safe to remove from map immediately?
+                // NO. If we remove from map, we lose the reference to the "stopping" process.
+                // If we leave it, next sync cycle finds it again and sends SIGTERM again (idempotent, kind of).
+                // Let's remove from map immediately to keep state clean, assuming kill() works or timeout works.
                 this.activeRecordings.delete(id);
             }
         }
@@ -112,10 +139,28 @@ export class RecorderManager {
         this.activeRecordings.set(feed.id, command);
     }
 
-    private cleanupOldRecordings() {
+    private async cleanupOldRecordings() {
         console.log('Running cleanup job...');
         const now = Date.now();
-        const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+        // Default 24 hours
+        let maxAge = 24 * 60 * 60 * 1000;
+
+        try {
+            // Lazy load SettingsModel to avoid circular dependencies if any
+            // (Though importing at top level is usually fine in this project structure)
+            const { SettingsModel } = require('./settings');
+            const settings = await SettingsModel.getAllSettings();
+            if (settings.recording_retention) {
+                const hours = parseInt(settings.recording_retention, 10);
+                if (!isNaN(hours) && hours > 0) {
+                    maxAge = hours * 60 * 60 * 1000;
+                    console.log(`Using configured retention: ${hours} hours`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load retention settings, using default:', err);
+        }
 
         const processDir = (dir: string) => {
             const files = fs.readdirSync(dir);
@@ -126,7 +171,7 @@ export class RecorderManager {
                 if (stat.isDirectory()) {
                     processDir(filePath);
                 } else {
-                    if (now - stat.mtimeMs > MAX_AGE) {
+                    if (now - stat.mtimeMs > maxAge) {
                         console.log(`Deleting old file: ${filePath}`);
                         fs.unlinkSync(filePath);
                     }

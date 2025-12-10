@@ -129,7 +129,7 @@ export class DetectorManager {
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                `-vf select=gt(scene\\,${threshold}),showinfo`,
+                `-vf scale=640:-1,select=gt(scene\\,${threshold}),showinfo`,
                 '-f null',
             ])
             .output('/dev/null')

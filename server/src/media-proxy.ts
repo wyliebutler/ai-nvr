@@ -98,8 +98,68 @@ export class MediaProxyService {
             fs.appendFileSync(this.configPath, newEntry);
             console.log(`Successfully added ${feedKey} to mediamtx.yml`);
 
+            // 2. Runtime: Restart MediaMTX via Docker Socket to force reload
+            // (API hot-reload is blocked by auth issues in v1.15.4, so we force restart)
+            this.restartMediaMtxContainer().catch(err => {
+                console.error(`[Docker] Failed to restart MediaMTX container:`, err.message);
+            });
+
         } catch (error) {
             console.error('Failed to update mediamtx.yml:', error);
         }
+    }
+
+    private async restartMediaMtxContainer() {
+        const http = require('http');
+        console.log('[Docker] Attempting to restart MediaMTX container...');
+
+        // 1. Find the container ID
+        const listOpts = {
+            socketPath: '/var/run/docker.sock',
+            path: '/containers/json?filters={"label":["com.docker.compose.service=mediamtx"]}',
+            method: 'GET'
+        };
+
+        return new Promise<void>((resolve, reject) => {
+            const req = http.request(listOpts, (res: any) => {
+                let data = '';
+                res.on('data', (chunk: any) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const containers = JSON.parse(data);
+                        if (!containers || containers.length === 0) {
+                            console.warn('[Docker] MediaMTX container not found via socket (check filters).');
+                            return resolve();
+                        }
+
+                        const containerId = containers[0].Id;
+                        console.log(`[Docker] Found MediaMTX container: ${containerId.substring(0, 12)}. Restarting...`);
+
+                        // 2. Restart it
+                        const restartOpts = {
+                            socketPath: '/var/run/docker.sock',
+                            path: `/containers/${containerId}/restart`,
+                            method: 'POST'
+                        };
+
+                        const restartReq = http.request(restartOpts, (rRes: any) => {
+                            if (rRes.statusCode === 204) {
+                                console.log('[Docker] MediaMTX restart triggered successfully.');
+                            } else {
+                                console.error(`[Docker] Restart failed with status: ${rRes.statusCode}`);
+                            }
+                            resolve();
+                        });
+                        restartReq.on('error', (e: any) => reject(e));
+                        restartReq.end();
+
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+            req.on('error', (e: any) => reject(e));
+            req.end();
+        });
     }
 }

@@ -28,3 +28,22 @@ Thumbs.db
 
 # SSH Config (optional, depends if user considers this sensitive)
 # ssh_config
+
+# Secrets
+ai-nvr-key
+ai-nvr-key.pub
+ssh_config
+
+# Backups and Temporary Files
+backup-working-*/
+client-backup/
+client-extracted/
+client-working-backup.tar.gz
+*.tar.gz
+*.gz
+
+# Tool Configs
+.agent/
+.claude/
+.github/
+

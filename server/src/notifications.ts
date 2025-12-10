@@ -16,7 +16,7 @@ export const NotificationModel = {
         const logs = await db.all(`
             SELECT n.*, f.name as feed_name 
             FROM notifications n 
-            LEFT JOIN feeds f ON n.feed_id = f.id 
+            LEFT JOIN feeds f ON CAST(n.feed_id AS INTEGER) = CAST(f.id AS INTEGER)
             ORDER BY n.created_at DESC 
             LIMIT ? OFFSET ?
         `, [limit, offset]);
