@@ -5,6 +5,7 @@ import { SettingsModel } from './settings';
 import { NotificationModel } from './notifications';
 import { DetectorManager } from './detector';
 import { RecorderManager } from './recorder';
+import { MediaProxyService } from './media-proxy';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 
@@ -120,6 +121,9 @@ router.post('/feeds', requireAuth, requireAdmin, async (req, res) => {
         // Refresh managers immediately
         await DetectorManager.getInstance().refresh();
         await RecorderManager.getInstance().refresh();
+
+        // Update MediaMTX Config
+        MediaProxyService.getInstance().registerFeedInConfig(feed);
 
         res.json(feed);
     } catch (error: any) {

@@ -23,7 +23,7 @@ Copy-Item -Path "docker-compose.yml" -Destination ".deploy_tmp/"
 Copy-Item -Path "tsconfig.json" -Destination ".deploy_tmp/"
 Copy-Item -Path "package.json" -Destination ".deploy_tmp/"
 Copy-Item -Path "setup-admin.sh" -Destination ".deploy_tmp/"
-Copy-Item -Path "mediamtx.yml" -Destination ".deploy_tmp/"
+# Copy-Item -Path "mediamtx.yml" -Destination ".deploy_tmp/"
 
 # Copy client (excluding node_modules)
 # Copy-Item -Exclude is shallow, so we copy everything then delete node_modules
@@ -47,7 +47,7 @@ scp -F ssh_config deploy.tar.gz ai-nvr:/srv/ai-nvr/
 
 Write-Host "Extracting and rebuilding on server..."
 # -o for overwrite
-ssh -F ssh_config ai-nvr "cd /srv/ai-nvr && rm -rf client server/src mediamtx.yml && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker compose down && docker system prune -f && docker compose build --no-cache server client && docker compose up -d"
+ssh -F ssh_config ai-nvr "cd /srv/ai-nvr && rm -rf client server/src && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker compose down && docker system prune -f && docker compose build --no-cache server client && docker compose up -d"
 
 # Cleanup local archive
 Remove-Item deploy.tar.gz -Force
