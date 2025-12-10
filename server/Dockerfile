@@ -21,6 +21,7 @@ RUN npm install
 
 COPY server/tsconfig.json ./
 COPY server/src ./src
+COPY server/add_camera.js ./
 
 # Build
 RUN npm run build

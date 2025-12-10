@@ -139,7 +139,7 @@ export class StreamManager {
         const inputOptions = isRtsp
             ? [
                 '-rtsp_transport tcp',
-                '-analyzeduration 1000000', // Increased to 1s (from 100ms) for stability
+                '-analyzeduration 100000', // Reduced to 100ms for faster startup
                 '-probesize 1000000',       // Increased to 1MB (from 100KB)
                 '-fflags nobuffer',        // Discard buffered data
                 '-flags low_delay',        // Force low delay

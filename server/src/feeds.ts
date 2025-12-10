@@ -29,7 +29,7 @@ export const FeedModel = {
             'INSERT INTO feeds (name, rtsp_url, settings) VALUES (?, ?, ?)',
             [input.name, input.rtsp_url, input.settings || '{}']
         );
-        return { id: result.lastID, ...input };
+        return { id: result.lastID as number, ...input, settings: input.settings || '{}' };
     },
 
     async deleteFeed(id: number) {

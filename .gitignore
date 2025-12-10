@@ -1,33 +1,30 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
 build/
-.env
-.DS_Store
-coverage/
-recordings/*
-!recordings/.gitkeep
-data/*
-!data/.gitkeep
-server/data/
-temp/
-*.log
-.deploy_tmp/
-deploy.tar.gz
-backup-*/
+client/dist/
+
+# Database and Media
 *.sqlite
-.vscode/
-.idea/
-ai-nvr-key
-ai-nvr-key.pub
-ssh_config
-login.json
-client-backup/
-client-extracted/
-client-working-backup.tar.gz
-.agent/
-.claude/
-.antigravity/
-ai_developer_prompt.md
-gen-token.js
-server_logs.txt
-*_logs.txt
+*.sqlite-journal
+server/data/*.sqlite
+recordings/
+**/recordings/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SSH Config (optional, depends if user considers this sensitive)
+# ssh_config

@@ -30,6 +30,7 @@ export function Layout() {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Video, label: 'Cameras', path: '/feeds' },
         { icon: Video, label: 'Recordings', path: '/recordings' },
         { icon: Settings, label: 'Settings', path: '/settings' },
         { icon: Users, label: 'Users', path: '/users', adminOnly: true },

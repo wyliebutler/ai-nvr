@@ -8,3 +8,6 @@ paths:
   feed_1:
     source: rtsp://thingino:thingino@192.168.2.80:554/ch0
     sourceOnDemand: no
+  feed_8:
+    source: rtsp://192.168.2.141:8554/usb0
+    sourceOnDemand: no

@@ -1,0 +1,7 @@
+Host ai-nvr
+    HostName 192.168.2.254
+    User root
+    IdentityFile ./ai-nvr-key
+    LocalForward 3000 localhost:80
+    LocalForward 7000 localhost:7000
+    StrictHostKeyChecking no

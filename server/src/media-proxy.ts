@@ -35,11 +35,8 @@ export class MediaProxyService {
         // Just populate the internal map so the rest of the app knows what to do
         this.urlMap.clear();
         for (const feed of feeds) {
-            if (feed.rtsp_url.startsWith('rtsp')) {
-                this.urlMap.set(feed.rtsp_url, `${RTSP_PROXY_BASE}/feed_${feed.id}`);
-            }
+            const proxyUrl = `${RTSP_PROXY_BASE}/feed_${feed.id}`;
+            this.urlMap.set(feed.rtsp_url, proxyUrl);
         }
     }
-
-
 }
