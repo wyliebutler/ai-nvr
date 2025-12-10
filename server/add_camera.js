@@ -80,11 +80,7 @@ async function ask(question) {
     sourceOnDemand: no
 `;
                 // Add to end of options or paths section
-                // Simple append works if paths is at the bottom, but safer to find "paths:"
                 if (configContent.includes('paths:')) {
-                    // Append to end of file is usually safe for YAML if indentation is correct relative to root or parent.
-                    // But 'paths:' is a root key. 
-                    // Let's explicitly append to the file end, ensuring indentation matches 'paths' children (2 spaces).
                     fs.appendFileSync(MEDIAMTX_CONFIG, newEntry);
                     console.log(`Added ${feedKey} to MediaMTX config.`);
                 } else {

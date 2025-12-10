@@ -7,7 +7,8 @@ services:
       - "7000:7000"
     volumes:
       - ./data:/app/server/data
-      - ./recordings:/app/server/recordings
+      - /mnt/user/Files/ai-nvr-footage:/app/server/recordings
+      - ./mediamtx.yml:/app/server/mediamtx.yml
     depends_on:
       - mediamtx
     restart: unless-stopped
