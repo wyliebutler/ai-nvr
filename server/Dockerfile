@@ -22,6 +22,7 @@ RUN npm install
 COPY server/tsconfig.json ./
 COPY server/src ./src
 COPY server/add_camera.js ./
+COPY server/restore_feeds.js ./
 
 # Build
 RUN npm run build

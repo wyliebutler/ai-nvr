@@ -133,7 +133,12 @@ router.post('/feeds', requireAuth, requireAdmin, async (req, res) => {
 
 router.delete('/feeds/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
-        await FeedModel.deleteFeed(Number(req.params.id));
+        const id = Number(req.params.id);
+        await FeedModel.deleteFeed(id);
+
+        // Remove from MediaMTX Config
+        MediaProxyService.getInstance().removeFeedFromConfig(id);
+
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete feed' });
@@ -144,6 +149,10 @@ router.put('/feeds/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
         const data = FeedSchema.parse(req.body);
         const feed = await FeedModel.updateFeed(Number(req.params.id), data);
+
+        // Update MediaMTX Config
+        MediaProxyService.getInstance().updateFeedInConfig(feed as any);
+
         res.json(feed);
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -152,35 +161,9 @@ router.put('/feeds/:id', requireAuth, requireAdmin, async (req, res) => {
 
 router.get('/feeds/:id/recordings', requireAuth, async (req, res) => {
     try {
-        // TODO: Ideally we should use dependency injection or a singleton for RecorderManager
-        // For now, we'll instantiate a temporary one or move the logic to a static method/helper
-        // But RecorderManager is stateful.
-        // Let's export the instance from index.ts or make it a singleton.
-        // Or just use fs directly here for simplicity since we just list files.
-
-        const feedId = req.params.id;
-        const recordingsDir = path.join(process.cwd(), 'recordings', feedId);
-
-        try {
-            const fs = require('fs');
-            if (!fs.existsSync(recordingsDir)) {
-                return res.json([]);
-            }
-
-            const files = await fs.promises.readdir(recordingsDir);
-            const recordings = files
-                .filter((f: string) => f.endsWith('.mp4'))
-                .map((f: string) => ({
-                    filename: f,
-                    url: `/vod/${feedId}/${f}`,
-                    timestamp: f.replace('.mp4', '')
-                }))
-                .sort((a: any, b: any) => b.filename.localeCompare(a.filename));
-
-            res.json(recordings);
-        } catch (err) {
-            res.json([]);
-        }
+        // Use centralized RecorderManager logic
+        const recordings = await RecorderManager.getInstance().getRecordings(Number(req.params.id));
+        res.json(recordings);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch recordings' });
     }
@@ -265,6 +248,28 @@ router.get('/notifications', requireAuth, async (req, res) => {
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+router.delete('/notifications', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        await NotificationModel.deleteAll();
+        res.json({ success: true, message: 'All notifications cleared' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to clear notifications' });
+    }
+});
+
+router.post('/notifications/prune', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { hours } = req.body;
+        if (!hours || typeof hours !== 'number') {
+            return res.status(400).json({ error: 'Invalid hours parameter' });
+        }
+        await NotificationModel.cleanupOldLogs(hours);
+        res.json({ success: true, message: `Pruned logs older than ${hours} hours` });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to prune notifications' });
     }
 });
 

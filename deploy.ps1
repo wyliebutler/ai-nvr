@@ -14,6 +14,7 @@ Copy-Item -Path shared -Destination .deploy_tmp -Recurse
 
 # Copy server (excluding node_modules)
 Copy-Item -Path server/* -Destination .deploy_tmp/server -Recurse
+if (Test-Path server/restore_feeds.js) { Copy-Item -Path server/restore_feeds.js -Destination .deploy_tmp/server/ }
 if (Test-Path .deploy_tmp/server/node_modules) {
     Remove-Item .deploy_tmp/server/node_modules -Recurse -Force
 }
@@ -23,7 +24,7 @@ Copy-Item -Path "docker-compose.yml" -Destination ".deploy_tmp/"
 Copy-Item -Path "tsconfig.json" -Destination ".deploy_tmp/"
 Copy-Item -Path "package.json" -Destination ".deploy_tmp/"
 Copy-Item -Path "setup-admin.sh" -Destination ".deploy_tmp/"
-# Copy-Item -Path "mediamtx.yml" -Destination ".deploy_tmp/"
+Copy-Item -Path "mediamtx.yml" -Destination ".deploy_tmp/"
 
 # Copy client (excluding node_modules)
 # Copy-Item -Exclude is shallow, so we copy everything then delete node_modules

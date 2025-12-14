@@ -10,6 +10,7 @@ interface StreamSession {
 
 export class StreamManager {
     private sessions: Map<string, StreamSession> = new Map();
+    private lastStartAttempt: Map<string, number> = new Map();
     private wss: WebSocketServer;
 
     constructor(wss: WebSocketServer) {
@@ -99,7 +100,7 @@ export class StreamManager {
 
         if (session.clients.size === 0) {
             console.log(`No clients left for ${rtspUrl}, stopping stream.`);
-            session.ffmpegCommand.kill('SIGINT');
+            session.ffmpegCommand.kill('SIGKILL');
             this.sessions.delete(rtspUrl);
         }
     }
@@ -117,6 +118,22 @@ export class StreamManager {
     }
 
     private startStream(rtspUrl: string): StreamSession {
+        const lastStart = this.lastStartAttempt.get(rtspUrl) || 0;
+        const now = Date.now();
+        // For streams, we want faster retry but still stopped from looping tight
+        if (now - lastStart < 3000) { // 3s cooldown for streams
+            console.log(`[Stream] Throttling start for ${rtspUrl}`);
+            // We still proceed? No, return dummy or error?
+            // If we return undefined, addClientToStream fails. 
+            // We must throw or handle it.
+            // Since this returns StreamSession, we can't easily skip. 
+            // We will just log ensuring we don't start NEW ffmpeg command if one is starting...
+            // But this method creates a new one.
+            // Let's THROW to prevent creation.
+            throw new Error('Stream start throttled');
+        }
+        this.lastStartAttempt.set(rtspUrl, now);
+
         console.log(`Starting ffmpeg for ${rtspUrl}`);
 
         // This is a simplified MSE stream setup. 
@@ -128,42 +145,66 @@ export class StreamManager {
         const isRtsp = streamSource.startsWith('rtsp');
 
         if (isRtsp) {
+            // Bypass proxy for now as it is causing 404s
+            /*
             const proxyUrl = MediaProxyService.getInstance().getProxyUrlByOriginal(rtspUrl);
             if (proxyUrl) {
                 console.log(`[Stream] Switching ${rtspUrl} to proxy: ${proxyUrl}`);
                 streamSource = proxyUrl;
             }
+            */
+            console.log(`[Stream] Direct connection to ${rtspUrl} (Proxy bypassed)`);
         }
 
         // Remove -re for RTSP to process as fast as possible (reduce latency)
+        // Remove -re for RTSP to process as fast as possible (reduce latency)
         const inputOptions = isRtsp
             ? [
+                '-hwaccel auto',           // Use GPU for decoding
                 '-rtsp_transport tcp',
                 '-analyzeduration 100000', // Reduced to 100ms for faster startup
-                '-probesize 1000000',       // Increased to 1MB (from 100KB)
+                '-probesize 1000000',      // Increased to 1MB (from 100KB)
                 '-fflags nobuffer',        // Discard buffered data
                 '-flags low_delay',        // Force low delay
                 '-strict experimental'     // Allow experimental features
             ]
-            : ['-stream_loop -1', '-re'];
+            : ['-hwaccel auto', '-stream_loop -1', '-re'];
 
         const command = ffmpeg(streamSource)
             .inputOptions(inputOptions)
             .outputOptions([
                 '-f mpegts',             // Output format
                 '-codec:v mpeg1video',   // MPEG-1 for JSMpeg compatibility
-                '-b:v 2000k',            // Higher bitrate for better quality
-                '-r 25',                 // 25fps
+                '-b:v 2000k',            // Higher bitrate (original working value)
+                '-r 25',                 // 25fps (original working value)
                 '-bf 0',                 // No B-frames
-                '-q:v 2',                // High quality
-                '-tune zerolatency',     // Tune for zero latency
-                '-preset ultrafast'      // Encode as fast as possible
+                // Removed performance flags to rule them out
             ])
             .on('start', (cmdLine) => {
                 console.log('FFmpeg started:', cmdLine);
+
+                // EXPLICIT PID TRACKING
+                const pid = (command as any).ffmpegProc.pid;
+                console.log(`[Stream] Started FFmpeg process for ${rtspUrl} (PID: ${pid})`);
+
+                // Monkey-patch kill to ensure we use process.kill
+                const originalKill = command.kill.bind(command);
+                command.kill = (signal = 'SIGKILL') => {
+                    console.log(`[Stream] Force killing FFmpeg PID: ${pid}`);
+                    try {
+                        if (pid) process.kill(pid, 'SIGKILL');
+                    } catch (e: any) {
+                        if (e.code !== 'ESRCH') {
+                            console.error(`[Stream] Failed to kill process ${pid}:`, e);
+                        }
+                    }
+                    return originalKill(signal);
+                };
             })
             .on('error', (err) => {
                 console.error('FFmpeg error:', err.message);
+                // Force kill on error to prevent zombies
+                command.kill('SIGKILL');
                 this.closeAllClientsForUrl(rtspUrl);
                 this.sessions.delete(rtspUrl);
             })
@@ -175,6 +216,8 @@ export class StreamManager {
                 this.closeAllClientsForUrl(rtspUrl);
                 this.sessions.delete(rtspUrl);
             });
+
+
 
         const stream = command.pipe();
 

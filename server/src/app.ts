@@ -21,7 +21,7 @@ app.use('/api', router);
 
 // Serve static files for VOD
 const RECORDINGS_DIR = path.resolve(__dirname, '../recordings');
-app.use('/vod', express.static(RECORDINGS_DIR));
+app.use('/recordings', express.static(RECORDINGS_DIR));
 
 // Admin user creation moved to index.ts
 

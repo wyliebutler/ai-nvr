@@ -39,5 +39,10 @@ export const NotificationModel = {
             DELETE FROM notifications 
             WHERE created_at < datetime('now', '-' || ? || ' hours')
         `, [hours]);
+    },
+
+    async deleteAll() {
+        const db = getDB();
+        await db.run('DELETE FROM notifications');
     }
 };

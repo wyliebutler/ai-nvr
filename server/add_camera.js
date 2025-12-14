@@ -77,7 +77,7 @@ async function ask(question) {
                 const newEntry = `
   ${feedKey}:
     source: ${rtspUrl}
-    sourceOnDemand: no
+    sourceOnDemand: false
 `;
                 // Add to end of options or paths section
                 if (configContent.includes('paths:')) {

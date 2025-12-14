@@ -1,12 +1,9 @@
-api: yes
+api: true
 apiAddress: :9997
 logLevel: info
 paths:
   feed_7:
-    source: rtsp://wyliebutler:ler542111@192.168.2.51:554/stream1
-    sourceOnDemand: no
-  feed_1:
-    source: rtsp://thingino:thingino@192.168.2.80:554/ch0
+    source: rtsp://wyliebutler:Ler542111%21%21@192.168.2.51:554/stream1
     sourceOnDemand: no
   feed_8:
     source: rtsp://192.168.2.141:8554/usb0

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Link, Navigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Plus, Save } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Save, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import { useTheme } from '../context/ThemeContext';
@@ -30,6 +30,7 @@ export function SettingsPage() {
     const [feeds, setFeeds] = useState<Feed[]>([]);
     const [settings, setSettings] = useState<Settings>({});
     const [newFeed, setNewFeed] = useState({ name: '', rtsp_url: '' });
+    const [pruneHours, setPruneHours] = useState('168'); // Default 1 week
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -100,6 +101,30 @@ export function SettingsPage() {
             loadData();
         } catch (error) {
             console.error('Failed to delete feed', error);
+        }
+    };
+
+    const handleClearLogs = async () => {
+        if (!confirm('Are you sure you want to delete ALL detection logs? This cannot be undone.')) return;
+        try {
+            await api.delete('/notifications');
+            setMessage('All logs cleared successfully');
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error) {
+            console.error('Failed to clear logs', error);
+            setMessage('Failed to clear logs');
+        }
+    };
+
+    const handlePruneLogs = async () => {
+        try {
+            const hours = parseInt(pruneHours, 10);
+            await api.post('/notifications/prune', { hours });
+            setMessage(`Logs older than ${hours} hours pruned successfully`);
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error) {
+            console.error('Failed to prune logs', error);
+            setMessage('Failed to prune logs');
         }
     };
 
@@ -323,6 +348,58 @@ export function SettingsPage() {
                                     </button>
                                 </div>
                             </form>
+                        </section>
+
+                        {/* Logs & Maintenance */}
+                        <section className="glass-panel p-6">
+                            <h2 className="text-xl font-bold mb-4 text-text-primary flex items-center gap-2">
+                                <Clock size={24} />
+                                Logs & Maintenance
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-text-primary">Prune Old Logs</h3>
+                                    <p className="text-sm text-gray-400">
+                                        Remove detection logs older than a specific timeframe to save space.
+                                    </p>
+                                    <div className="flex gap-4">
+                                        <select
+                                            className="input-field flex-1"
+                                            value={pruneHours}
+                                            onChange={(e) => setPruneHours(e.target.value)}
+                                        >
+                                            <option value="24">Older than 24 Hours</option>
+                                            <option value="72">Older than 3 Days</option>
+                                            <option value="168">Older than 1 Week</option>
+                                            <option value="336">Older than 2 Weeks</option>
+                                            <option value="720">Older than 1 Month</option>
+                                        </select>
+                                        <button
+                                            onClick={handlePruneLogs}
+                                            className="btn btn-secondary whitespace-nowrap"
+                                        >
+                                            Prune Logs
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 border-l border-white/10 pl-0 md:pl-8">
+                                    <h3 className="font-semibold text-red-400 flex items-center gap-2">
+                                        <AlertTriangle size={18} />
+                                        Danger Zone
+                                    </h3>
+                                    <p className="text-sm text-gray-400">
+                                        Irreversibly delete all detection logs from the database.
+                                    </p>
+                                    <button
+                                        onClick={handleClearLogs}
+                                        className="btn btn-danger w-full justify-center"
+                                    >
+                                        <Trash2 size={18} />
+                                        Clear All Logs
+                                    </button>
+                                </div>
+                            </div>
                         </section>
                     </div>
                 </>

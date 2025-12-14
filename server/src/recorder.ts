@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { FeedModel } from './feeds';
 import { MediaProxyService } from './media-proxy';
+import { SettingsModel } from './settings';
 
 const RECORDINGS_DIR = path.resolve(__dirname, '../recordings');
 
@@ -14,6 +15,7 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
 export class RecorderManager {
     private static instance: RecorderManager;
     private activeRecordings: Map<number, ffmpeg.FfmpegCommand> = new Map();
+    private lastStartAttempt: Map<number, number> = new Map();
 
     private constructor() {
         this.startRecordingAllFeeds();
@@ -91,6 +93,14 @@ export class RecorderManager {
     }
 
     private startRecording(feed: any) {
+        const lastStart = this.lastStartAttempt.get(feed.id) || 0;
+        const now = Date.now();
+        if (now - lastStart < 10000) { // 10s cooldown
+            console.log(`[Recorder] Skipping start for feed ${feed.name} (cooldown active)`);
+            return;
+        }
+        this.lastStartAttempt.set(feed.id, now);
+
         console.log(`Starting recording for feed ${feed.name} (${feed.id})`);
         const feedDir = path.join(RECORDINGS_DIR, feed.id.toString());
 
@@ -99,8 +109,9 @@ export class RecorderManager {
         }
 
         // FFmpeg command to segment video
+        // FFmpeg command to segment video
         const isRtsp = feed.rtsp_url.startsWith('rtsp');
-        const inputOptions = isRtsp ? ['-rtsp_transport tcp'] : ['-stream_loop -1', '-re']; // -re for files to simulate realtime
+        const inputOptions = isRtsp ? ['-rtsp_transport tcp'] : ['-stream_loop -1', '-re']; // 20s timeout
 
         const url = feed.rtsp_url.startsWith('file://')
             ? feed.rtsp_url.replace('file:///', '').replace('file://', '')
@@ -109,25 +120,45 @@ export class RecorderManager {
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                '-c:v copy',            // Direct stream copy for video
-                '-c:a aac',             // Transcode audio to AAC (better compatibility)
+                '-c:v copy',            // Stream copy (zero CPU usage)
+                '-an',                  // Disable audio (save resources)
+                '-movflags +faststart', // Essential for web playback start
+
                 '-f segment',
-                '-segment_time 1800',   // 30 minutes
+                '-segment_time 600',   // 10 minutes
                 '-segment_format mp4',
                 '-reset_timestamps 1',
                 '-strftime 1',
-                '-movflags +faststart', // Optimize for web playback
             ])
             .output(path.join(feedDir, '%Y-%m-%d_%H-%M-%S.mp4'))
             .on('start', (cmdLine) => {
                 console.log(`Recording started for ${feed.name}:`, cmdLine);
+
+                // EXPLICIT PID TRACKING
+                const pid = (command as any).ffmpegProc.pid;
+                console.log(`[Recorder] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+
+                // Monkey-patch kill to ensure we use process.kill
+                const originalKill = command.kill.bind(command);
+                command.kill = (signal = 'SIGKILL') => {
+                    console.log(`[Recorder] Force killing FFmpeg PID: ${pid}`);
+                    try {
+                        if (pid) process.kill(pid, 'SIGKILL');
+                    } catch (e: any) {
+                        if (e.code !== 'ESRCH') {
+                            console.error(`[Recorder] Failed to kill process ${pid}:`, e);
+                        }
+                    }
+                    return originalKill(signal);
+                };
             })
             .on('stderr', (line) => {
                 // console.log(`Recording stderr: ${line}`);
             })
             .on('error', (err) => {
                 console.error(`Recording error for ${feed.name}:`, err.message);
-                // Retry logic could go here
+                // CRITICAL FIX: Force kill to cleanup
+                command.kill('SIGKILL');
                 this.activeRecordings.delete(feed.id);
             })
             .on('end', () => {
@@ -136,6 +167,8 @@ export class RecorderManager {
             });
 
         command.run();
+
+
         this.activeRecordings.set(feed.id, command);
     }
 
@@ -149,7 +182,6 @@ export class RecorderManager {
         try {
             // Lazy load SettingsModel to avoid circular dependencies if any
             // (Though importing at top level is usually fine in this project structure)
-            const { SettingsModel } = require('./settings');
             const settings = await SettingsModel.getAllSettings();
             if (settings.recording_retention) {
                 const hours = parseInt(settings.recording_retention, 10);

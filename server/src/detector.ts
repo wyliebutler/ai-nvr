@@ -11,6 +11,8 @@ export class DetectorManager {
     private static instance: DetectorManager;
     private activeDetectors: Map<number, ffmpeg.FfmpegCommand> = new Map();
     private lastNotification: Map<number, number> = new Map();
+    private lastActive: Map<number, number> = new Map();
+    private lastStartAttempt: Map<number, number> = new Map();
     private processing: Set<number> = new Set();
 
     private constructor() {
@@ -76,12 +78,29 @@ export class DetectorManager {
     private async syncDetectors() {
         const feeds = await FeedModel.getAllFeeds();
         const feedIds = new Set(feeds.map(f => f.id));
+        const now = Date.now();
 
+        // Check for removed feeds OR stuck feeds
         for (const [id, command] of this.activeDetectors) {
             if (!feedIds.has(id)) {
+                console.log(`Removing detector for feed ${id}`);
                 command.kill('SIGTERM');
                 this.activeDetectors.delete(id);
+                this.lastActive.delete(id);
+                continue;
             }
+
+            // Check for stuck process (no output for 2 minutes)
+            /*
+            const last = this.lastActive.get(id) || 0;
+            if (now - last > 120000) { // 2 minutes
+                console.log(`Detector for feed ${id} appears stuck (no activity for 2m). Restarting...`);
+                command.kill('SIGKILL');
+                this.activeDetectors.delete(id);
+                this.lastActive.delete(id);
+                // It will be restarted in the next loop below
+            }
+            */
         }
 
         for (const feed of feeds) {
@@ -92,6 +111,14 @@ export class DetectorManager {
     }
 
     private async startDetection(feed: any) {
+        const lastStart = this.lastStartAttempt.get(feed.id) || 0;
+        const now = Date.now();
+        if (now - lastStart < 10000) { // 10s cooldown
+            console.log(`[Detector] Skipping start for feed ${feed.name} (cooldown active)`);
+            return;
+        }
+        this.lastStartAttempt.set(feed.id, now);
+
         console.log(`Starting detection for feed ${feed.name}`);
 
         const settings = await SettingsModel.getAllSettings();
@@ -123,38 +150,65 @@ export class DetectorManager {
 
         console.log(`[Detector] Source for ${feed.name}: ${url}`);
 
-        // Increase frame rate to 4fps for better responsiveness
-        const inputOptions = isRtsp ? ['-rtsp_transport tcp', '-r 4'] : ['-stream_loop -1', '-re', '-r 4'];
+        // Decrease frame rate to 2fps for lower CPU usage
+        // Add hardware acceleration (auto) to use mapped /dev/dri if available
+        const inputOptions = isRtsp
+            ? ['-hwaccel auto', '-rtsp_transport tcp', '-r 2']
+            : ['-hwaccel auto', '-stream_loop -1', '-re', '-r 2'];
 
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                `-vf scale=640:-1,select=gt(scene\\,${threshold}),showinfo`,
+                `-vf scale=320:-1,select=gt(scene\\,${threshold}),showinfo`,
                 '-f null',
             ])
             .output('/dev/null')
             .on('start', (cmdLine) => {
                 console.log(`Detection started for ${feed.name}:`, cmdLine);
+
+                // EXPLICIT PID TRACKING
+                const pid = (command as any).ffmpegProc.pid;
+                console.log(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+
+                // Monkey-patch kill to ensure we use process.kill
+                const originalKill = command.kill.bind(command);
+                command.kill = (signal = 'SIGKILL') => {
+                    console.log(`[Detector] Force killing FFmpeg PID: ${pid}`);
+                    try {
+                        if (pid) process.kill(pid, 'SIGKILL');
+                    } catch (e: any) {
+                        if (e.code !== 'ESRCH') {
+                            console.error(`[Detector] Failed to kill process ${pid}:`, e);
+                        }
+                    }
+                    return originalKill(signal);
+                };
             })
             .on('stderr', (line) => {
-                // Log everything for debugging
-                // console.log(`[Detector ${feed.name}] ${line}`);
+                // Update last active time
+                this.lastActive.set(feed.id, Date.now());
 
                 if (line.includes('pts_time')) {
-                    // Extract scene score for debugging: "n:   1 pts:   12800 pts_time:0.1    pos:    22320 fmt:rgb24 sar:1/1 s:640x360 i:P iskey:1 type:I checksum:935F4C75 plane_checksum:[935F4C75] mean:[125] stdev:[12.5]"
-                    // The 'scene' score is usually not in showinfo output directly unless using 'select' filter with debug? 
-                    // Actually checking showinfo output it just means a frame PASSED the select filter.
-                    console.log(`[Motion Debug] Motion detected on ${feed.name}: ${line}`);
+                    const logMsg = `[Motion Debug] Motion detected on ${feed.name}: ${line}`;
+                    console.log(logMsg);
                     this.handleMotion(feed);
                 }
             })
             .on('error', (err) => {
                 console.error(`Detection error for ${feed.name}:`, err.message);
+                // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
+                command.kill('SIGKILL');
                 this.activeDetectors.delete(feed.id);
             });
 
         command.run();
+
+
+
         this.activeDetectors.set(feed.id, command);
+        this.lastActive.set(feed.id, Date.now()); // Initialize timestamp
+
+
     }
 
     private async handleMotion(feed: any) {

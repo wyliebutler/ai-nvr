@@ -10,6 +10,9 @@ services:
       - /mnt/user/Files/ai-nvr-footage:/app/server/recordings
       - ./mediamtx.yml:/app/server/mediamtx.yml
       - /var/run/docker.sock:/var/run/docker.sock
+    devices:
+      - /dev/dri:/dev/dri
+    init: true
     depends_on:
       - mediamtx
     restart: unless-stopped
