@@ -40,6 +40,36 @@ export class RecorderManager {
         await this.syncRecordings();
     }
 
+    public async stop() {
+        recorderLogger.info('Stopping all recordings...');
+        const promises = [];
+        for (const [id, command] of this.activeRecordings) {
+            promises.push(new Promise<void>((resolve) => {
+                // Set a timeout to force resolve if ffmpeg hangs
+                const timeout = setTimeout(() => {
+                    recorderLogger.warn({ feedId: id }, `Recorder stop timed out, forcing kill.`);
+                    command.kill('SIGKILL');
+                    resolve();
+                }, 2000);
+
+                command.on('end', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+
+                command.on('error', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+
+                command.kill('SIGINT');
+            }));
+        }
+        await Promise.all(promises);
+        this.activeRecordings.clear();
+        recorderLogger.info('All recordings stopped.');
+    }
+
     private async startRecordingAllFeeds() {
         const feeds = await FeedModel.getAllFeeds();
         for (const feed of feeds) {

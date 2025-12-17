@@ -69,7 +69,7 @@ initDB().then(async () => {
 
         await detectorManager.stop();
         await streamManager.stop();
-        // Recorder manager stop if implemented, or just let process exit kill them
+        await recorderManager.stop();
 
         logger.info('Graceful shutdown complete.');
         process.exit(0);
