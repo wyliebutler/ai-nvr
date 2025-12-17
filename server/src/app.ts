@@ -5,6 +5,8 @@ import path from 'path';
 import router from './routes'; // Default export
 import { initDB } from './db';
 import { AuthModel } from './auth';
+import pinoHttp from 'pino-http';
+import { logger } from './utils/logger';
 
 // Initialize Express
 const app = express();
@@ -12,6 +14,8 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Connect the logger to the HTTP pipeline
+app.use(pinoHttp({ logger }));
 
 // Initialize Database
 // initDB() called in index.ts and tests

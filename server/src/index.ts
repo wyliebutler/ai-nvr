@@ -6,13 +6,16 @@ import { WebSocketServer } from 'ws';
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
+import { logger } from './utils/logger';
 
 import { initDB } from './db';
 import { AuthModel } from './auth';
 import { MediaProxyService } from './media-proxy';
 import { FeedModel } from './feeds';
 
-const PORT = process.env.PORT || 7000;
+import { config } from './config';
+
+const PORT = config.PORT;
 
 // Create HTTP Server (needed for WS)
 const server = http.createServer(app);
@@ -24,7 +27,7 @@ const wss = new WebSocketServer({ server });
 
 // Initialize Database
 initDB().then(async () => {
-    console.log('Database initialized');
+    logger.info('Database initialized');
 
     // Initialize Managers
     const streamManager = new StreamManager(wss);
@@ -54,21 +57,21 @@ initDB().then(async () => {
 
     // Server listener moved inside initDB().then()
     server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+        logger.info({ port: PORT }, 'Server running');
     });
 
     // Graceful Shutdown
     const shutdown = async (signal: string) => {
-        console.log(`\n${signal} received. Starting graceful shutdown...`);
+        logger.info({ signal }, 'Signal received. Starting graceful shutdown...');
         server.close(() => {
-            console.log('HTTP/WS server closed.');
+            logger.info('HTTP/WS server closed.');
         });
 
         await detectorManager.stop();
         await streamManager.stop();
         // Recorder manager stop if implemented, or just let process exit kill them
 
-        console.log('Graceful shutdown complete.');
+        logger.info('Graceful shutdown complete.');
         process.exit(0);
     };
 
@@ -76,7 +79,7 @@ initDB().then(async () => {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
 }).catch(err => {
-    console.error('Failed to initialize database:', err);
+    logger.fatal({ err }, 'Failed to initialize database');
     process.exit(1);
 });
 

@@ -4,7 +4,10 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
+import { config } from './config';
+
+const JWT_SECRET = config.JWT_SECRET;
+
 
 export const UserSchema = z.object({
     username: z.string().min(3),

@@ -15,7 +15,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 const feeds = [
     { id: 7, name: 'Tapo Driveway', url: 'rtsp://wyliebutler:Ler542111%21%21@192.168.2.51:554/stream1' },
-    { id: 8, name: 'PiCam', url: 'rtsp://192.168.2.141:8554/usb0' }
+    { id: 8, name: 'PiCam', url: 'rtsp://pi4bcam:8554/usb0' }
 ];
 
 db.serialize(() => {

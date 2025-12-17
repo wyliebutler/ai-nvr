@@ -10,7 +10,9 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
+import { config } from './config';
+
+const JWT_SECRET = config.JWT_SECRET;
 
 // Middleware to check auth
 const requireAuth = (req: any, res: any, next: any) => {

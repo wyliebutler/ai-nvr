@@ -184,8 +184,8 @@ export class RecorderManager {
             // (Though importing at top level is usually fine in this project structure)
             const settings = await SettingsModel.getAllSettings();
             if (settings.recording_retention) {
-                const hours = parseInt(settings.recording_retention, 10);
-                if (!isNaN(hours) && hours > 0) {
+                const hours = settings.recording_retention;
+                if (hours > 0) {
                     maxAge = hours * 60 * 60 * 1000;
                     console.log(`Using configured retention: ${hours} hours`);
                 }

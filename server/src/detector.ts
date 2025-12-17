@@ -6,6 +6,8 @@ import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { MediaProxyService } from './media-proxy';
+// import { logger } from './utils/logger';
+
 
 export class DetectorManager {
     private static instance: DetectorManager;
@@ -28,18 +30,21 @@ export class DetectorManager {
     }
 
     public async refresh() {
-        console.log('Refreshing detectors...');
+        // logger call commented out
+        // info('Refreshing detectors...');
         await this.syncDetectors();
     }
 
     public async stop() {
-        console.log('Stopping all detectors...');
+        // logger call commented out
+        // info('Stopping all detectors...');
         const promises = [];
         for (const [id, command] of this.activeDetectors) {
             promises.push(new Promise<void>((resolve) => {
                 // Set a timeout to force resolve if ffmpeg hangs
                 const timeout = setTimeout(() => {
-                    console.log(`Detector ${id} stop timed out, forcing kill.`);
+                    // logger call commented out
+                    // warn({ feedId: id }, `Detector stop timed out, forcing kill.`);
                     command.kill('SIGKILL');
                     resolve();
                 }, 2000);
@@ -110,19 +115,28 @@ export class DetectorManager {
         }
     }
 
+    protected resolveUrl(feed: any): string {
+        const rawUrl = feed.rtsp_url.startsWith('file://') ? feed.rtsp_url.replace('file:///', '').replace('file://', '') : feed.rtsp_url;
+        const isRtsp = rawUrl.startsWith('rtsp');
+        // Use proxy for RTSP
+        return isRtsp ? MediaProxyService.getInstance().getProxyUrl(feed) : rawUrl;
+    }
+
     private async startDetection(feed: any) {
         const lastStart = this.lastStartAttempt.get(feed.id) || 0;
         const now = Date.now();
         if (now - lastStart < 10000) { // 10s cooldown
-            console.log(`[Detector] Skipping start for feed ${feed.name} (cooldown active)`);
+            // logger call commented out
+            // debug({ feedId: feed.id, name: feed.name }, 'Skipping start (cooldown active)');
             return;
         }
         this.lastStartAttempt.set(feed.id, now);
 
-        console.log(`Starting detection for feed ${feed.name}`);
+        // logger call commented out
+        // info({ feedId: feed.id, name: feed.name }, 'Starting detection');
 
         const settings = await SettingsModel.getAllSettings();
-        const sensitivity = settings.motion_sensitivity || 'medium';
+        const sensitivity = settings.motion_sensitivity; // Schema defaults to 'medium'
         let threshold = 0.015; // Default (medium)
 
         switch (sensitivity) {
@@ -141,14 +155,14 @@ export class DetectorManager {
                 break;
         }
 
-        console.log(`Using sensitivity: ${sensitivity} (threshold: ${threshold})`);
+        // Log sensitivity
 
-        const rawUrl = feed.rtsp_url.startsWith('file://') ? feed.rtsp_url.replace('file:///', '').replace('file://', '') : feed.rtsp_url;
-        const isRtsp = rawUrl.startsWith('rtsp');
-        // Use proxy for RTSP
-        const url = isRtsp ? MediaProxyService.getInstance().getProxyUrl(feed) : rawUrl;
 
-        console.log(`[Detector] Source for ${feed.name}: ${url}`);
+
+        const url = this.resolveUrl(feed);
+        const isRtsp = url.startsWith('rtsp');
+
+
 
         // Decrease frame rate to 2fps for lower CPU usage
         // Add hardware acceleration (auto) to use mapped /dev/dri if available
@@ -164,7 +178,8 @@ export class DetectorManager {
             ])
             .output('/dev/null')
             .on('start', (cmdLine) => {
-                console.log(`Detection started for ${feed.name}:`, cmdLine);
+                // logger call commented out
+                // info({ feedId: feed.id, cmd: cmdLine }, 'Detection started');
 
                 // EXPLICIT PID TRACKING
                 const pid = (command as any).ffmpegProc.pid;
@@ -189,19 +204,22 @@ export class DetectorManager {
                 this.lastActive.set(feed.id, Date.now());
 
                 if (line.includes('pts_time')) {
-                    const logMsg = `[Motion Debug] Motion detected on ${feed.name}: ${line}`;
-                    console.log(logMsg);
+                    // Verbose motion log - useful for calibration but spammy in prod
+                    // // logger call commented out
+                    // trace({ feedId: feed.id, line }, 'Motion debug');
                     this.handleMotion(feed);
                 }
             })
             .on('error', (err) => {
-                console.error(`Detection error for ${feed.name}:`, err.message);
+                // logger call commented out
+                // error({ feedId: feed.id, err }, 'Detection error');
                 // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
                 command.kill('SIGKILL');
                 this.activeDetectors.delete(feed.id);
             })
             .on('end', () => {
-                console.log(`Detection process ended for ${feed.name}`);
+                // logger call commented out
+                // info({ feedId: feed.id }, 'Detection process ended');
                 this.activeDetectors.delete(feed.id);
             });
 
@@ -226,7 +244,7 @@ export class DetectorManager {
         const last = this.lastNotification.get(feed.id) || 0;
 
         const settings = await SettingsModel.getAllSettings();
-        const intervalMinutes = parseInt(settings.notification_interval || '15', 10);
+        const intervalMinutes = settings.notification_interval ?? 15;
         const cooldownMs = intervalMinutes * 60 * 1000;
 
         // 2. Check cooldown BEFORE locking to fail fast
