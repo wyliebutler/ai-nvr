@@ -91,8 +91,9 @@ export class DetectorManager {
             }
 
             // Check for stuck process (no output for 2 minutes)
-            /*
             const last = this.lastActive.get(id) || 0;
+            // Allow a grace period for startup (if lastActive is 0 or close to start time)
+            // But we initialize lastActive to Date.now() on start, so it should be fine.
             if (now - last > 120000) { // 2 minutes
                 console.log(`Detector for feed ${id} appears stuck (no activity for 2m). Restarting...`);
                 command.kill('SIGKILL');
@@ -100,7 +101,6 @@ export class DetectorManager {
                 this.lastActive.delete(id);
                 // It will be restarted in the next loop below
             }
-            */
         }
 
         for (const feed of feeds) {
@@ -198,6 +198,10 @@ export class DetectorManager {
                 console.error(`Detection error for ${feed.name}:`, err.message);
                 // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
                 command.kill('SIGKILL');
+                this.activeDetectors.delete(feed.id);
+            })
+            .on('end', () => {
+                console.log(`Detection process ended for ${feed.name}`);
                 this.activeDetectors.delete(feed.id);
             });
 
