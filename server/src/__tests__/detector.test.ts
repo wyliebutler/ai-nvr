@@ -32,65 +32,85 @@ jest.mock('../utils/logger', () => ({
 }));
 
 describe('DetectorManager Smoke Test', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        (FeedModel.getAllFeeds as jest.Mock).mockResolvedValue([]);
+        (SettingsModel.getAllSettings as jest.Mock).mockResolvedValue({});
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
     it('loads the module successfully', () => {
         expect(DetectorManager).toBeDefined();
     });
 
     it('initializes successfully', async () => {
-        (FeedModel.getAllFeeds as jest.Mock).mockResolvedValue([]);
-        (SettingsModel.getAllSettings as jest.Mock).mockResolvedValue({});
+        const mockProxy = {
+            getProxyUrl: jest.fn(),
+            syncConfig: jest.fn(),
+        } as unknown as MediaProxyService;
 
-        // Use spyOn for MediaProxy just in case constructor calls it?
-        // Constructor calls startDetectionAllFeeds -> getAllFeeds -> []
-        // So startDetection is NOT called. MediaProxy NOT called.
-
-        const detector = DetectorManager.getInstance();
+        const detector = new DetectorManager(mockProxy);
         expect(detector).toBeDefined();
     });
 
-    it.skip('resolves correct URL for FILE', () => {
-        const detector = DetectorManager.getInstance();
-        const feed = { id: 2, rtsp_url: 'file:///path/to/video.mp4' };
+    it('resolves correct URL for FILE', () => {
+        const mockProxy = {
+            getProxyUrl: jest.fn(),
+            getProxyUrlByOriginal: jest.fn(),
+            syncConfig: jest.fn(),
+            registerFeedInConfig: jest.fn(),
+            updateFeedInConfig: jest.fn(),
+            removeFeedFromConfig: jest.fn(),
+        } as unknown as MediaProxyService;
 
-        // Proxy should NOT be called
-        const mockFn = jest.fn();
-        jest.spyOn(MediaProxyService, 'getInstance').mockReturnValue({
-            getProxyUrl: mockFn
-        } as any);
+        const detector = new DetectorManager(mockProxy);
+        const feed = { id: 2, rtsp_url: 'file:///path/to/video.mp4' };
 
         const url = (detector as any).resolveUrl(feed);
         expect(url).toBe('/path/to/video.mp4');
-        expect(mockFn).not.toHaveBeenCalled();
+        expect(mockProxy.getProxyUrl).not.toHaveBeenCalled();
     });
 
-    it.skip('resolves correct URL for RTSP', () => {
-        const detector = DetectorManager.getInstance();
-        const feed = { id: 1, rtsp_url: 'rtsp://cam1' };
+    it('resolves correct URL for RTSP', () => {
+        const mockProxy = {
+            getProxyUrl: jest.fn().mockReturnValue('rtsp://proxied'),
+            getProxyUrlByOriginal: jest.fn(),
+            syncConfig: jest.fn(),
+            registerFeedInConfig: jest.fn(),
+            updateFeedInConfig: jest.fn(),
+            removeFeedFromConfig: jest.fn(),
+        } as unknown as MediaProxyService;
 
-        // Mock MediaProxy response
-        const mockFn = jest.fn().mockReturnValue('rtsp://proxied');
-        jest.spyOn(MediaProxyService, 'getInstance').mockReturnValue({
-            getProxyUrl: mockFn
-        } as any);
+        const detector = new DetectorManager(mockProxy);
+        const feed = { id: 1, rtsp_url: 'rtsp://cam1' };
 
         const url = (detector as any).resolveUrl(feed);
         expect(url).toBe('rtsp://proxied');
-        expect(mockFn).toHaveBeenCalledWith(feed);
+        expect(mockProxy.getProxyUrl).toHaveBeenCalledWith(feed);
     });
 
-    it.skip('starts detection for a feed', async () => {
+    it('starts detection for a feed', async () => {
         const mockFeed = { id: 1, name: 'Test Cam', rtsp_url: 'rtsp://test' };
         (FeedModel.getAllFeeds as jest.Mock).mockResolvedValue([mockFeed]);
-        (SettingsModel.getAllSettings as jest.Mock).mockResolvedValue({});
 
-        const mockGetProxyUrl = jest.fn().mockReturnValue('rtsp://proxy');
-        jest.spyOn(MediaProxyService, 'getInstance').mockReturnValue({
-            getProxyUrl: mockGetProxyUrl
-        } as any);
+        const mockProxy = {
+            getProxyUrl: jest.fn().mockReturnValue('rtsp://proxy'),
+            getProxyUrlByOriginal: jest.fn(),
+            syncConfig: jest.fn(),
+            registerFeedInConfig: jest.fn(),
+            updateFeedInConfig: jest.fn(),
+            removeFeedFromConfig: jest.fn(),
+        } as unknown as MediaProxyService;
 
-        const detector = DetectorManager.getInstance();
+        const detector = new DetectorManager(mockProxy);
+
+        // We can call syncDetectors directly if it was public, or force cast it
         await (detector as any).syncDetectors();
 
-        expect(ffmpeg).toHaveBeenCalled();
+        // Expect ffmpeg to have been called with the proxied URL
+        expect(ffmpeg).toHaveBeenCalledWith('rtsp://proxy');
     });
 });

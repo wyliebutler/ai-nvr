@@ -6,8 +6,9 @@ import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { MediaProxyService } from './media-proxy';
-// import { logger } from './utils/logger';
+import { logger } from './utils/logger';
 
+const detectLogger = logger.child({ module: 'detector' });
 
 export class DetectorManager {
     private static instance: DetectorManager;
@@ -16,35 +17,34 @@ export class DetectorManager {
     private lastActive: Map<number, number> = new Map();
     private lastStartAttempt: Map<number, number> = new Map();
     private processing: Set<number> = new Set();
+    private mediaProxy: MediaProxyService;
 
-    private constructor() {
+    public constructor(mediaProxy: MediaProxyService) {
+        this.mediaProxy = mediaProxy;
         this.startDetectionAllFeeds();
         setInterval(() => this.syncDetectors(), 60000);
     }
 
     public static getInstance(): DetectorManager {
         if (!DetectorManager.instance) {
-            DetectorManager.instance = new DetectorManager();
+            DetectorManager.instance = new DetectorManager(MediaProxyService.getInstance());
         }
         return DetectorManager.instance;
     }
 
     public async refresh() {
-        // logger call commented out
-        // info('Refreshing detectors...');
+        detectLogger.info('Refreshing detectors...');
         await this.syncDetectors();
     }
 
     public async stop() {
-        // logger call commented out
-        // info('Stopping all detectors...');
+        detectLogger.info('Stopping all detectors...');
         const promises = [];
         for (const [id, command] of this.activeDetectors) {
             promises.push(new Promise<void>((resolve) => {
                 // Set a timeout to force resolve if ffmpeg hangs
                 const timeout = setTimeout(() => {
-                    // logger call commented out
-                    // warn({ feedId: id }, `Detector stop timed out, forcing kill.`);
+                    detectLogger.warn({ feedId: id }, `Detector stop timed out, forcing kill.`);
                     command.kill('SIGKILL');
                     resolve();
                 }, 2000);
@@ -64,11 +64,11 @@ export class DetectorManager {
         }
         await Promise.all(promises);
         this.activeDetectors.clear();
-        console.log('All detectors stopped.');
+        detectLogger.info('All detectors stopped.');
     }
 
     public async restartAll() {
-        console.log('Restarting all detectors...');
+        detectLogger.info('Restarting all detectors...');
         await this.stop();
         await this.startDetectionAllFeeds();
     }
@@ -76,7 +76,7 @@ export class DetectorManager {
     private async startDetectionAllFeeds() {
         const feeds = await FeedModel.getAllFeeds();
         for (const feed of feeds) {
-            this.startDetection(feed);
+            await this.startDetection(feed);
         }
     }
 
@@ -88,7 +88,7 @@ export class DetectorManager {
         // Check for removed feeds OR stuck feeds
         for (const [id, command] of this.activeDetectors) {
             if (!feedIds.has(id)) {
-                console.log(`Removing detector for feed ${id}`);
+                detectLogger.info(`Removing detector for feed ${id}`);
                 command.kill('SIGTERM');
                 this.activeDetectors.delete(id);
                 this.lastActive.delete(id);
@@ -100,7 +100,7 @@ export class DetectorManager {
             // Allow a grace period for startup (if lastActive is 0 or close to start time)
             // But we initialize lastActive to Date.now() on start, so it should be fine.
             if (now - last > 120000) { // 2 minutes
-                console.log(`Detector for feed ${id} appears stuck (no activity for 2m). Restarting...`);
+                detectLogger.warn(`Detector for feed ${id} appears stuck (no activity for 2m). Restarting...`);
                 command.kill('SIGKILL');
                 this.activeDetectors.delete(id);
                 this.lastActive.delete(id);
@@ -119,21 +119,19 @@ export class DetectorManager {
         const rawUrl = feed.rtsp_url.startsWith('file://') ? feed.rtsp_url.replace('file:///', '').replace('file://', '') : feed.rtsp_url;
         const isRtsp = rawUrl.startsWith('rtsp');
         // Use proxy for RTSP
-        return isRtsp ? MediaProxyService.getInstance().getProxyUrl(feed) : rawUrl;
+        return isRtsp ? this.mediaProxy.getProxyUrl(feed) : rawUrl;
     }
 
     private async startDetection(feed: any) {
         const lastStart = this.lastStartAttempt.get(feed.id) || 0;
         const now = Date.now();
         if (now - lastStart < 10000) { // 10s cooldown
-            // logger call commented out
-            // debug({ feedId: feed.id, name: feed.name }, 'Skipping start (cooldown active)');
+            detectLogger.debug({ feedId: feed.id, name: feed.name }, 'Skipping start (cooldown active)');
             return;
         }
         this.lastStartAttempt.set(feed.id, now);
 
-        // logger call commented out
-        // info({ feedId: feed.id, name: feed.name }, 'Starting detection');
+        detectLogger.info({ feedId: feed.id, name: feed.name }, 'Starting detection');
 
         const settings = await SettingsModel.getAllSettings();
         const sensitivity = settings.motion_sensitivity; // Schema defaults to 'medium'
@@ -155,14 +153,8 @@ export class DetectorManager {
                 break;
         }
 
-        // Log sensitivity
-
-
-
         const url = this.resolveUrl(feed);
         const isRtsp = url.startsWith('rtsp');
-
-
 
         // Decrease frame rate to 2fps for lower CPU usage
         // Add hardware acceleration (auto) to use mapped /dev/dri if available
@@ -178,22 +170,21 @@ export class DetectorManager {
             ])
             .output('/dev/null')
             .on('start', (cmdLine) => {
-                // logger call commented out
-                // info({ feedId: feed.id, cmd: cmdLine }, 'Detection started');
+                detectLogger.info({ feedId: feed.id, cmd: cmdLine }, 'Detection started');
 
                 // EXPLICIT PID TRACKING
                 const pid = (command as any).ffmpegProc.pid;
-                console.log(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+                detectLogger.debug(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
 
                 // Monkey-patch kill to ensure we use process.kill
                 const originalKill = command.kill.bind(command);
                 command.kill = (signal = 'SIGKILL') => {
-                    console.log(`[Detector] Force killing FFmpeg PID: ${pid}`);
+                    detectLogger.debug(`[Detector] Force killing FFmpeg PID: ${pid}`);
                     try {
                         if (pid) process.kill(pid, 'SIGKILL');
                     } catch (e: any) {
                         if (e.code !== 'ESRCH') {
-                            console.error(`[Detector] Failed to kill process ${pid}:`, e);
+                            detectLogger.error(`[Detector] Failed to kill process ${pid}:`, e);
                         }
                     }
                     return originalKill(signal);
@@ -205,38 +196,31 @@ export class DetectorManager {
 
                 if (line.includes('pts_time')) {
                     // Verbose motion log - useful for calibration but spammy in prod
-                    // // logger call commented out
-                    // trace({ feedId: feed.id, line }, 'Motion debug');
+                    // detectLogger.trace({ feedId: feed.id, line }, 'Motion debug');
                     this.handleMotion(feed);
                 }
             })
             .on('error', (err) => {
-                // logger call commented out
-                // error({ feedId: feed.id, err }, 'Detection error');
+                detectLogger.error({ feedId: feed.id, err }, 'Detection error');
                 // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
                 command.kill('SIGKILL');
                 this.activeDetectors.delete(feed.id);
             })
             .on('end', () => {
-                // logger call commented out
-                // info({ feedId: feed.id }, 'Detection process ended');
+                detectLogger.info({ feedId: feed.id }, 'Detection process ended');
                 this.activeDetectors.delete(feed.id);
             });
 
         command.run();
 
-
-
         this.activeDetectors.set(feed.id, command);
         this.lastActive.set(feed.id, Date.now()); // Initialize timestamp
-
-
     }
 
     private async handleMotion(feed: any) {
         // 1. Check if already processing an event for this feed
         if (this.processing.has(feed.id)) {
-            console.log(`[Motion] Process lock active for feed ${feed.id}, skipping duplicate event.`);
+            detectLogger.debug(`[Motion] Process lock active for feed ${feed.id}, skipping duplicate event.`);
             return;
         }
 
@@ -260,7 +244,7 @@ export class DetectorManager {
             // Double check inside lock (though atomic enough in JS single thread loop, good practice)
             if (now - this.lastNotification.get(feed.id)! < cooldownMs) return;
 
-            console.log(`Motion detected on ${feed.name}! Sending notification...`);
+            detectLogger.info({ feedId: feed.id, name: feed.name }, 'Motion detected! Sending notification...');
             this.lastNotification.set(feed.id, now);
 
             const snapshotPath = await this.captureSnapshot(feed);
@@ -270,7 +254,7 @@ export class DetectorManager {
                 fs.unlinkSync(snapshotPath);
             }
         } catch (err) {
-            console.error(`Error handling motion for feed ${feed.id}:`, err);
+            detectLogger.error({ err, feedId: feed.id }, 'Error handling motion');
         } finally {
             // 4. Release Lock
             // Add a small delay to prevent rapid-fire triggers from the same motion event
@@ -299,7 +283,7 @@ export class DetectorManager {
                 .output(outputPath)
                 .on('end', () => resolve(outputPath))
                 .on('error', (err) => {
-                    console.error(`Snapshot capture failed for ${feed.name}:`, err.message);
+                    detectLogger.error({ err, feedId: feed.id }, `Snapshot capture failed for ${feed.name}`);
                     resolve(null);
                 })
                 .run();
@@ -310,13 +294,13 @@ export class DetectorManager {
         const settings = await SettingsModel.getAllSettings();
 
         if (settings.system_mode === 'home') {
-            console.log('System is in Home mode, skipping email notification.');
+            detectLogger.info('System is in Home mode, skipping email notification.');
             await NotificationModel.create(feed.id, 'motion', 'Motion');
             return;
         }
 
         if (!settings.smtp_host || !settings.notification_email) {
-            console.log('SMTP settings not configured, skipping email.');
+            detectLogger.info('SMTP settings not configured, skipping email.');
             await NotificationModel.create(feed.id, 'motion', 'Motion');
             return;
         }
@@ -348,10 +332,10 @@ export class DetectorManager {
             }
 
             await transporter.sendMail(mailOptions);
-            console.log('Notification sent.');
+            detectLogger.info({ feedId: feed.id }, 'Notification sent.');
             await NotificationModel.create(feed.id, 'email', 'Motion');
         } catch (error) {
-            console.error('Failed to send notification:', error);
+            detectLogger.error({ err: error, feedId: feed.id }, 'Failed to send notification');
             await NotificationModel.create(feed.id, 'error', 'Email failed');
         }
     }

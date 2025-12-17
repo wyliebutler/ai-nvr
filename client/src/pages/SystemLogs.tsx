@@ -6,6 +6,7 @@ interface LogEntry {
     level: number;
     time: number;
     msg: string;
+    module?: string;
     [key: string]: any;
 }
 
@@ -13,6 +14,7 @@ export function SystemLogs() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isPlaying, setIsPlaying] = useState(true);
     const [filter, setFilter] = useState<'all' | 'error' | 'warn'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'detector' | 'recorder' | 'system'>('all');
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchLogs = async () => {
@@ -38,8 +40,6 @@ export function SystemLogs() {
         return 'text-green-400'; // Info/Debug
     };
 
-
-
     const getLevelName = (level: number) => {
         if (level >= 60) return 'FATAL';
         if (level >= 50) return 'ERROR';
@@ -50,8 +50,16 @@ export function SystemLogs() {
     };
 
     const filteredLogs = logs.filter(log => {
-        if (filter === 'error') return log.level >= 50;
-        if (filter === 'warn') return log.level >= 40;
+        // Level Filter
+        if (filter === 'error' && log.level < 50) return false;
+        if (filter === 'warn' && log.level < 40) return false;
+
+        // Source Filter
+        if (sourceFilter !== 'all') {
+            if (sourceFilter === 'system') return !log.module; // System logs have no module tag
+            return log.module === sourceFilter;
+        }
+
         return true;
     });
 
@@ -65,8 +73,21 @@ export function SystemLogs() {
                 <div className="flex items-center gap-2">
                     <select
                         className="bg-secondary text-text-primary border-none rounded-lg px-3 py-2 text-sm"
+                        value={sourceFilter}
+                        onChange={(e) => setSourceFilter(e.target.value as any)}
+                        title="Filter by Source"
+                    >
+                        <option value="all">All Sources</option>
+                        <option value="detector">Detector</option>
+                        <option value="recorder">Recorder</option>
+                        <option value="system">System</option>
+                    </select>
+
+                    <select
+                        className="bg-secondary text-text-primary border-none rounded-lg px-3 py-2 text-sm"
                         value={filter}
                         onChange={(e) => setFilter(e.target.value as any)}
+                        title="Filter by Level"
                     >
                         <option value="all">All Levels</option>
                         <option value="warn">Warnings & Errors</option>
@@ -95,20 +116,26 @@ export function SystemLogs() {
                         <div className="text-text-secondary text-center py-10 opacity-50">No logs found...</div>
                     )}
                     {filteredLogs.map((log, i) => (
-                        <div key={i} className="flex gap-3 hover:bg-white/5 p-1 rounded">
-                            <span className="text-text-secondary min-w-[150px]">
+                        <div key={i} className="flex gap-3 hover:bg-white/5 p-1 rounded items-start">
+                            <span className="text-text-secondary min-w-[150px] whitespace-nowrap">
                                 {new Date(log.time).toLocaleTimeString()}
                             </span>
                             <span className={`font-bold min-w-[60px] ${getLevelColor(log.level)}`}>
                                 {getLevelName(log.level)}
                             </span>
+                            {/* Module Tag */}
+                            {log.module && (
+                                <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-white/10 text-blue-300 min-w-[70px] text-center">
+                                    {log.module.toUpperCase()}
+                                </span>
+                            )}
                             <span className="flex-1 text-gray-300 break-all">
                                 {log.msg}
-                                {Object.keys(log).length > 3 && (
+                                {Object.keys(log).length > (log.module ? 4 : 3) && (
                                     <span className="opacity-50 ml-2 text-xs">
                                         {JSON.stringify(
                                             Object.fromEntries(
-                                                Object.entries(log).filter(([k]) => !['level', 'time', 'msg'].includes(k))
+                                                Object.entries(log).filter(([k]) => !['level', 'time', 'msg', 'module'].includes(k))
                                             )
                                         )}
                                     </span>
