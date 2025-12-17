@@ -12,6 +12,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     devices:
       - /dev/dri:/dev/dri
+    pid: "host"
     init: true
     depends_on:
       - mediamtx
