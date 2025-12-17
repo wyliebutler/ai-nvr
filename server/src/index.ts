@@ -12,6 +12,7 @@ import { initDB } from './db';
 import { AuthModel } from './auth';
 import { MediaProxyService } from './media-proxy';
 import { FeedModel } from './feeds';
+import { ZombieReaper } from './reaper';
 
 import { config } from './config';
 
@@ -58,6 +59,8 @@ initDB().then(async () => {
     // Server listener moved inside initDB().then()
     server.listen(PORT, () => {
         logger.info({ port: PORT }, 'Server running');
+        // Start Zombie Reaper
+        ZombieReaper.getInstance();
     });
 
     // Graceful Shutdown

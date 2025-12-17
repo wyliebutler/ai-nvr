@@ -70,6 +70,15 @@ export class RecorderManager {
         recorderLogger.info('All recordings stopped.');
     }
 
+    public getActivePids(): number[] {
+        const pids: number[] = [];
+        for (const command of this.activeRecordings.values()) {
+            const pid = (command as any).ffmpegProc?.pid;
+            if (pid) pids.push(pid);
+        }
+        return pids;
+    }
+
     private async startRecordingAllFeeds() {
         const feeds = await FeedModel.getAllFeeds();
         for (const feed of feeds) {

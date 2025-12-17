@@ -19,6 +19,15 @@ export class DetectorManager {
     private processing: Set<number> = new Set();
     private mediaProxy: MediaProxyService;
 
+    public getActivePids(): number[] {
+        const pids: number[] = [];
+        for (const command of this.activeDetectors.values()) {
+            const pid = (command as any).ffmpegProc?.pid;
+            if (pid) pids.push(pid);
+        }
+        return pids;
+    }
+
     public constructor(mediaProxy: MediaProxyService) {
         this.mediaProxy = mediaProxy;
         this.startDetectionAllFeeds();
