@@ -8,25 +8,38 @@ import { config } from '../config';
 
 const isDev = config.NODE_ENV !== 'production';
 
-// Configuration for Pino
-const transport = isDev
-    ? {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,      // Add colors for error/info/warn
-            translateTime: 'SYS:standard', // Human readable time
-            ignore: 'pid,hostname', // Hide noise in dev
-        },
+// Ring Buffer Implementation
+const LOG_BUFFER_SIZE = 1000;
+const logBuffer: any[] = [];
+
+// Custom destination to capture logs
+const bufferStream = {
+    write(msg: string) {
+        try {
+            const logEntry = JSON.parse(msg);
+            if (logBuffer.length >= LOG_BUFFER_SIZE) {
+                logBuffer.shift(); // Remove oldest
+            }
+            logBuffer.push(logEntry);
+
+            // Also write to stdout so we don't lose logs in console
+            process.stdout.write(msg);
+        } catch (e) {
+            // Fallback for non-JSON strings
+            process.stdout.write(msg);
+        }
     }
-    : undefined; // undefined means "Use Default JSON" (Best for production)
+};
+
+export const getRecentLogs = () => [...logBuffer].reverse(); // Newest first
 
 export const logger = pino({
     level: config.LOG_LEVEL,
-    transport,
+    // transport, // Removed to use custom stream (or we can use multistream but keep it simple)
     formatters: {
         // Standardize log levels (e.g., use 'severity' instead of number codes if needed, but defaults are good)
     }
-});
+}, bufferStream);
 
 /**
  * Educational Note:

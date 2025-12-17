@@ -12,6 +12,7 @@ import { Recordings } from './pages/Recordings'
 import { SettingsPage } from './pages/SettingsPage'
 import { SetupWizard } from './pages/SetupWizard'
 import { UsersPage } from './pages/UsersPage'
+import { SystemLogs } from './pages/SystemLogs'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                             <Route path="/feed/:id" element={<SingleFeedView />} />
                             <Route path="/recordings" element={<Recordings />} />
                             <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/logs" element={<SystemLogs />} />
                             <Route path="/users" element={<UsersPage />} />
                         </Route>
                     </Routes>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Video, LogOut, Settings, Users, Menu, X, Home } from 'lucide-react';
+import { LayoutDashboard, Video, LogOut, Settings, Users, Menu, X, Home, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 
@@ -33,6 +33,7 @@ export function Layout() {
         { icon: Video, label: 'Cameras', path: '/feeds' },
         { icon: Video, label: 'Recordings', path: '/recordings' },
         { icon: Settings, label: 'Settings', path: '/settings' },
+        { icon: AlertCircle, label: 'Logs', path: '/logs', adminOnly: true },
         { icon: Users, label: 'Users', path: '/users', adminOnly: true },
     ];
 

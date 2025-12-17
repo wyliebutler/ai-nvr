@@ -262,6 +262,12 @@ router.delete('/notifications', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+router.get('/logs', requireAuth, requireAdmin, (req, res) => {
+    // Dynamic import to avoid circular dependency if logger imports routes (unlikely but safe)
+    const { getRecentLogs } = require('./utils/logger');
+    res.json(getRecentLogs());
+});
+
 router.post('/notifications/prune', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { hours } = req.body;
