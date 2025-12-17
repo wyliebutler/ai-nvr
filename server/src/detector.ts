@@ -17,6 +17,7 @@ export class DetectorManager {
     private lastActive: Map<number, number> = new Map();
     private lastStartAttempt: Map<number, number> = new Map();
     private processing: Set<number> = new Set();
+    private starting: Set<number> = new Set();
     private mediaProxy: MediaProxyService;
 
     public getActivePids(): number[] {
@@ -25,6 +26,7 @@ export class DetectorManager {
             const pid = (command as any).ffmpegProc?.pid;
             if (pid) pids.push(pid);
         }
+        detectLogger.debug({ count: pids.length, pids }, 'getActivePids called');
         return pids;
     }
 
@@ -132,98 +134,117 @@ export class DetectorManager {
     }
 
     private async startDetection(feed: any) {
+        if (this.starting.has(feed.id)) {
+            detectLogger.debug({ feedId: feed.id }, 'Skipping start (already starting)');
+            return;
+        }
+
         const lastStart = this.lastStartAttempt.get(feed.id) || 0;
         const now = Date.now();
         if (now - lastStart < 10000) { // 10s cooldown
             detectLogger.debug({ feedId: feed.id, name: feed.name }, 'Skipping start (cooldown active)');
             return;
         }
-        this.lastStartAttempt.set(feed.id, now);
 
-        detectLogger.info({ feedId: feed.id, name: feed.name }, 'Starting detection');
-
-        const settings = await SettingsModel.getAllSettings();
-        const sensitivity = settings.motion_sensitivity; // Schema defaults to 'medium'
-        let threshold = 0.015; // Default (medium)
-
-        switch (sensitivity) {
-            case 'high':
-                threshold = 0.001; // Was 0.002
-                break;
-            case 'low':
-                threshold = 0.025; // Was 0.05
-                break;
-            case 'very_low':
-                threshold = 0.10; // Was 0.15
-                break;
-            case 'medium':
-            default:
-                threshold = 0.008; // Was 0.015
-                break;
+        // Double check active
+        if (this.activeDetectors.has(feed.id)) {
+            detectLogger.debug({ feedId: feed.id }, 'Skipping start (already active)');
+            return;
         }
 
-        const url = this.resolveUrl(feed);
-        const isRtsp = url.startsWith('rtsp');
+        this.starting.add(feed.id);
+        this.lastStartAttempt.set(feed.id, now);
 
-        // Decrease frame rate to 2fps for lower CPU usage
-        // Add hardware acceleration (auto) to use mapped /dev/dri if available
-        const inputOptions = isRtsp
-            ? ['-hwaccel auto', '-rtsp_transport tcp', '-r 2']
-            : ['-hwaccel auto', '-stream_loop -1', '-re', '-r 2'];
+        try {
+            detectLogger.info({ feedId: feed.id, name: feed.name }, 'Starting detection');
 
-        const command = ffmpeg(url)
-            .inputOptions(inputOptions)
-            .outputOptions([
-                `-vf scale=320:-1,select=gt(scene\\,${threshold}),showinfo`,
-                '-f null',
-            ])
-            .output('/dev/null')
-            .on('start', (cmdLine) => {
-                detectLogger.info({ feedId: feed.id, cmd: cmdLine }, 'Detection started');
+            const settings = await SettingsModel.getAllSettings();
+            const sensitivity = settings.motion_sensitivity; // Schema defaults to 'medium'
+            let threshold = 0.015; // Default (medium)
 
-                // EXPLICIT PID TRACKING
-                const pid = (command as any).ffmpegProc.pid;
-                detectLogger.debug(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+            switch (sensitivity) {
+                case 'high':
+                    threshold = 0.001; // Was 0.002
+                    break;
+                case 'low':
+                    threshold = 0.025; // Was 0.05
+                    break;
+                case 'very_low':
+                    threshold = 0.10; // Was 0.15
+                    break;
+                case 'medium':
+                default:
+                    threshold = 0.008; // Was 0.015
+                    break;
+            }
 
-                // Monkey-patch kill to ensure we use process.kill
-                const originalKill = command.kill.bind(command);
-                command.kill = (signal = 'SIGKILL') => {
-                    detectLogger.debug(`[Detector] Force killing FFmpeg PID: ${pid}`);
-                    try {
-                        if (pid) process.kill(pid, 'SIGKILL');
-                    } catch (e: any) {
-                        if (e.code !== 'ESRCH') {
-                            detectLogger.error(`[Detector] Failed to kill process ${pid}:`, e);
+            const url = this.resolveUrl(feed);
+            const isRtsp = url.startsWith('rtsp');
+
+            // Decrease frame rate to 2fps for lower CPU usage
+            // Add hardware acceleration (auto) to use mapped /dev/dri if available
+            const inputOptions = isRtsp
+                ? ['-hwaccel auto', '-rtsp_transport tcp', '-r 2']
+                : ['-hwaccel auto', '-stream_loop -1', '-re', '-r 2'];
+
+            const command = ffmpeg(url)
+                .inputOptions(inputOptions)
+                .outputOptions([
+                    `-vf scale=320:-1,select=gt(scene\\,${threshold}),showinfo`,
+                    '-f null',
+                ])
+                .output('/dev/null')
+                .on('start', (cmdLine) => {
+                    detectLogger.info({ feedId: feed.id, cmd: cmdLine }, 'Detection started');
+
+                    // EXPLICIT PID TRACKING
+                    const pid = (command as any).ffmpegProc.pid;
+                    detectLogger.debug(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+
+                    // Monkey-patch kill to ensure we use process.kill
+                    const originalKill = command.kill.bind(command);
+                    command.kill = (signal = 'SIGKILL') => {
+                        detectLogger.debug(`[Detector] Force killing FFmpeg PID: ${pid}`);
+                        try {
+                            if (pid) process.kill(pid, 'SIGKILL');
+                        } catch (e: any) {
+                            if (e.code !== 'ESRCH') {
+                                detectLogger.error(`[Detector] Failed to kill process ${pid}:`, e);
+                            }
                         }
+                        return originalKill(signal);
+                    };
+                })
+                .on('stderr', (line) => {
+                    // Update last active time
+                    this.lastActive.set(feed.id, Date.now());
+
+                    if (line.includes('pts_time')) {
+                        // Verbose motion log - useful for calibration but spammy in prod
+                        // detectLogger.trace({ feedId: feed.id, line }, 'Motion debug');
+                        this.handleMotion(feed);
                     }
-                    return originalKill(signal);
-                };
-            })
-            .on('stderr', (line) => {
-                // Update last active time
-                this.lastActive.set(feed.id, Date.now());
+                })
+                .on('error', (err) => {
+                    detectLogger.error({ feedId: feed.id, err }, 'Detection error');
+                    // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
+                    command.kill('SIGKILL');
+                    this.activeDetectors.delete(feed.id);
+                })
+                .on('end', () => {
+                    detectLogger.info({ feedId: feed.id }, 'Detection process ended');
+                    this.activeDetectors.delete(feed.id);
+                });
 
-                if (line.includes('pts_time')) {
-                    // Verbose motion log - useful for calibration but spammy in prod
-                    // detectLogger.trace({ feedId: feed.id, line }, 'Motion debug');
-                    this.handleMotion(feed);
-                }
-            })
-            .on('error', (err) => {
-                detectLogger.error({ feedId: feed.id, err }, 'Detection error');
-                // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
-                command.kill('SIGKILL');
-                this.activeDetectors.delete(feed.id);
-            })
-            .on('end', () => {
-                detectLogger.info({ feedId: feed.id }, 'Detection process ended');
-                this.activeDetectors.delete(feed.id);
-            });
+            command.run();
 
-        command.run();
-
-        this.activeDetectors.set(feed.id, command);
-        this.lastActive.set(feed.id, Date.now()); // Initialize timestamp
+            this.activeDetectors.set(feed.id, command);
+            this.lastActive.set(feed.id, Date.now()); // Initialize timestamp
+        } catch (err) {
+            detectLogger.error({ feedId: feed.id, err }, 'Failed to start detection');
+        } finally {
+            this.starting.delete(feed.id);
+        }
     }
 
     private async handleMotion(feed: any) {
