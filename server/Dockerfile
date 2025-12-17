@@ -2,7 +2,7 @@ FROM node:20-slim
 
 # Install ffmpeg
 RUN apt-get update && \
-    apt-get install -y ffmpeg python3 make g++ && \
+    apt-get install -y ffmpeg python3 make g++ procps && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

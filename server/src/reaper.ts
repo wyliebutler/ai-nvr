@@ -29,6 +29,7 @@ export class ZombieReaper {
         this.isRunning = true;
 
         try {
+            reaperLogger.info('ZombieReaper: Starting process scan...');
             // Get all ffmpeg PIDs running on the system
             // ps -eo pid,comm on Linux shows PID and command name
             // We use 'pgrep -f ffmpeg' or similar, but let's stick to ps for better compat in some docker containers
