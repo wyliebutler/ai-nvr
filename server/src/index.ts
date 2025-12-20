@@ -31,7 +31,7 @@ initDB().then(async () => {
     logger.info('Database initialized');
 
     // Initialize Managers
-    const streamManager = new StreamManager(wss);
+    const streamManager = StreamManager.getInstance(wss);
     const recorderManager = RecorderManager.getInstance();
     const detectorManager = DetectorManager.getInstance();
     const mediaProxy = MediaProxyService.getInstance();

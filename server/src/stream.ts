@@ -6,16 +6,38 @@ import { MediaProxyService } from './media-proxy';
 interface StreamSession {
     ffmpegCommand: ffmpeg.FfmpegCommand;
     clients: Set<WebSocket>;
+    pid?: number;
 }
 
 export class StreamManager {
+    private static instance: StreamManager;
     private sessions: Map<string, StreamSession> = new Map();
     private lastStartAttempt: Map<string, number> = new Map();
     private wss: WebSocketServer;
 
-    constructor(wss: WebSocketServer) {
+    private constructor(wss: WebSocketServer) {
         this.wss = wss;
         this.wss.on('connection', this.handleConnection.bind(this));
+    }
+
+    public static getInstance(wss?: WebSocketServer): StreamManager {
+        if (!StreamManager.instance) {
+            if (!wss) {
+                throw new Error('StreamManager must be initialized with WebSocketServer first');
+            }
+            StreamManager.instance = new StreamManager(wss);
+        }
+        return StreamManager.instance;
+    }
+
+    public getActivePids(): number[] {
+        const pids: number[] = [];
+        for (const session of this.sessions.values()) {
+            if (session.pid) {
+                pids.push(session.pid);
+            }
+        }
+        return pids;
     }
 
     private handleConnection(ws: WebSocket, req: IncomingMessage) {
@@ -170,6 +192,12 @@ export class StreamManager {
             ]
             : ['-hwaccel auto', '-stream_loop -1', '-re'];
 
+        // Create the session object first so we can refer to it in events
+        const session: StreamSession = {
+            ffmpegCommand: null as any, // Will set immediately below
+            clients: new Set(),
+        };
+
         const command = ffmpeg(streamSource)
             .inputOptions(inputOptions)
             .outputOptions([
@@ -185,6 +213,7 @@ export class StreamManager {
 
                 // EXPLICIT PID TRACKING
                 const pid = (command as any).ffmpegProc.pid;
+                session.pid = pid; // Store PID in session
                 console.log(`[Stream] Started FFmpeg process for ${rtspUrl} (PID: ${pid})`);
 
                 // Monkey-patch kill to ensure we use process.kill
@@ -217,15 +246,18 @@ export class StreamManager {
                 this.sessions.delete(rtspUrl);
             });
 
-
+        session.ffmpegCommand = command;
 
         const stream = command.pipe();
 
         stream.on('data', (chunk: Buffer) => {
             // console.log(`Received stream chunk: ${chunk.length} bytes`);
-            const session = this.sessions.get(rtspUrl);
-            if (session) {
-                for (const client of session.clients) {
+
+            // Re-fetch session to be safe, though usage of 'session' variable captured in closure is also fine
+            // provided the session reference doesn't change.
+            const currentSession = this.sessions.get(rtspUrl);
+            if (currentSession) {
+                for (const client of currentSession.clients) {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(chunk);
                     }
@@ -233,9 +265,6 @@ export class StreamManager {
             }
         });
 
-        return {
-            ffmpegCommand: command,
-            clients: new Set(),
-        };
+        return session;
     }
 }

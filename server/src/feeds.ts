@@ -23,6 +23,11 @@ export const FeedModel = {
         return db.all('SELECT * FROM feeds ORDER BY created_at DESC');
     },
 
+    async getFeedById(id: number) {
+        const db = getDB();
+        return db.get('SELECT * FROM feeds WHERE id = ?', [id]);
+    },
+
     async createFeed(input: FeedInput) {
         const db = getDB();
         const result = await db.run(

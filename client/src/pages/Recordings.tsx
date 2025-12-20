@@ -56,21 +56,41 @@ export function Recordings() {
 
     function formatTimestamp(filenameTimestamp: string) {
         try {
-            // Format: YYYY-MM-DD_HH-mm-ss
-            // Example: 2025-12-03_15-50-41
-            const [datePart, timePart] = filenameTimestamp.split('_');
-            const [year, month, day] = datePart.split('-');
-            const [hour, minute, second] = timePart.split('-');
+            // Filename format: YYYY-MM-DDTHH-mm-ss-mssZ (ISO with : and . replaced by -)
+            // Example: 2025-12-20T12-30-00-123Z
+            // Or old format: YYYY-MM-DD_HH-mm-ss
 
-            // Construct UTC ISO string: YYYY-MM-DDTHH:mm:ssZ
-            const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+            let isoString: string;
 
-            // Convert to local time (browser's timezone, e.g., Newfoundland)
+            if (filenameTimestamp.includes('T')) {
+                // Handle new recorder format
+                // Restore : and . to make it valid ISO again
+                // 2025-12-20T12-30-00-123Z -> 2025-12-20T12:30:00.123Z
+                const parts = filenameTimestamp.split('T');
+                const datePart = parts[0];
+                const timePart = parts[1].replace('Z', '');
+
+                const timeSegments = timePart.split('-');
+                // We expect HH, mm, ss, mss
+                // e.g. 12, 30, 00, 123
+
+                // Reconstruct to YYYY-MM-DDTHH:mm:ss.mssZ
+                isoString = `${datePart}T${timeSegments[0]}:${timeSegments[1]}:${timeSegments[2]}.${timeSegments[3]}Z`;
+            } else {
+                // Handle legacy/other format (YYYY-MM-DD_HH-mm-ss)
+                const [datePart, timePart] = filenameTimestamp.split('_');
+                const [year, month, day] = datePart.split('-');
+                const [hour, minute, second] = timePart.split('-');
+                isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+            }
+
+            // Convert to local time (browser's timezone)
             return new Date(isoString).toLocaleString(undefined, {
                 dateStyle: 'medium',
                 timeStyle: 'medium'
             });
         } catch (e) {
+            console.error('Date parsing error', e);
             return filenameTimestamp;
         }
     }

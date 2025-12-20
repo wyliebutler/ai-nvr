@@ -5,6 +5,7 @@ import { FeedModel } from './feeds';
 import { MediaProxyService } from './media-proxy';
 import { SettingsModel } from './settings';
 import { logger } from './utils/logger';
+import { EventBus } from './utils/event-bus';
 
 const recorderLogger = logger.child({ module: 'recorder' });
 
@@ -15,15 +16,23 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
     fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
+interface ActiveRecording {
+    command: ffmpeg.FfmpegCommand;
+    timeout: NodeJS.Timeout;
+    feedId: number;
+    startTime: number;
+}
+
 export class RecorderManager {
     private static instance: RecorderManager;
-    private activeRecordings: Map<number, ffmpeg.FfmpegCommand> = new Map();
-    private lastStartAttempt: Map<number, number> = new Map();
+    private activeRecordings: Map<number, ActiveRecording> = new Map();
+    // Default recording duration after last motion
+    private readonly RECORDING_TIMEOUT_MS = 60 * 1000;
 
     private constructor() {
-        this.startRecordingAllFeeds();
-        // Check for new feeds or changes every minute (simplified)
-        setInterval(() => this.syncRecordings(), 60000);
+        // this.wipeRecordings(); // Removed: Manual wipe only to prevent data loss on restart
+        this.setupEventListeners();
+
         // Cleanup old files every hour
         setInterval(() => this.cleanupOldRecordings(), 3600 * 1000);
     }
@@ -35,204 +44,188 @@ export class RecorderManager {
         return RecorderManager.instance;
     }
 
-    public async refresh() {
-        recorderLogger.info('Refreshing recordings...');
-        await this.syncRecordings();
-    }
-
-    public async stop() {
-        recorderLogger.info('Stopping all recordings...');
-        const promises = [];
-        for (const [id, command] of this.activeRecordings) {
-            promises.push(new Promise<void>((resolve) => {
-                // Set a timeout to force resolve if ffmpeg hangs
-                const timeout = setTimeout(() => {
-                    recorderLogger.warn({ feedId: id }, `Recorder stop timed out, forcing kill.`);
-                    command.kill('SIGKILL');
-                    resolve();
-                }, 2000);
-
-                command.on('end', () => {
-                    clearTimeout(timeout);
-                    resolve();
-                });
-
-                command.on('error', () => {
-                    clearTimeout(timeout);
-                    resolve();
-                });
-
-                command.kill('SIGINT');
-            }));
-        }
-        await Promise.all(promises);
-        this.activeRecordings.clear();
-        recorderLogger.info('All recordings stopped.');
-    }
-
     public getActivePids(): number[] {
         const pids: number[] = [];
-        for (const command of this.activeRecordings.values()) {
-            const pid = (command as any).ffmpegProc?.pid;
+        for (const session of this.activeRecordings.values()) {
+            const pid = (session.command as any).ffmpegProc?.pid;
             if (pid) pids.push(pid);
         }
         return pids;
     }
 
-    private async startRecordingAllFeeds() {
-        const feeds = await FeedModel.getAllFeeds();
-        for (const feed of feeds) {
-            this.startRecording(feed);
+    private wipeRecordings() {
+        recorderLogger.warn('Wiping all existing recordings as per configuration/deployment...');
+        try {
+            // Helper to recursively delete
+            const deleteFolderRecursive = (directoryPath: string) => {
+                if (fs.existsSync(directoryPath)) {
+                    fs.readdirSync(directoryPath).forEach((file, index) => {
+                        const curPath = path.join(directoryPath, file);
+                        if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                            deleteFolderRecursive(curPath);
+                        } else { // delete file
+                            fs.unlinkSync(curPath);
+                        }
+                    });
+                    // Don't remove the root recordings dir itself, just contents, or remove and recreate
+                }
+            };
+
+            // Delete content of RECORDINGS_DIR
+            const files = fs.readdirSync(RECORDINGS_DIR);
+            for (const file of files) {
+                const curPath = path.join(RECORDINGS_DIR, file);
+                if (fs.lstatSync(curPath).isDirectory()) {
+                    deleteFolderRecursive(curPath);
+                    fs.rmdirSync(curPath);
+                } else {
+                    fs.unlinkSync(curPath);
+                }
+            }
+            recorderLogger.info('Recordings wiped successfully.');
+        } catch (err) {
+            recorderLogger.error({ err }, 'Failed to wipe recordings');
         }
     }
 
-    private async syncRecordings() {
-        const feeds = await FeedModel.getAllFeeds();
-        const feedIds = new Set(feeds.map(f => f.id));
+    private setupEventListeners() {
+        EventBus.getInstance().on('motion:detected', (data: { feedId: number }) => {
+            this.handleMotion(data.feedId);
+        });
+    }
 
-        // Stop removed feeds
-        for (const [id, command] of this.activeRecordings) {
-            if (!feedIds.has(id)) {
-                recorderLogger.info(`Stopping recording for feed ${id} gracefully...`);
-
-                // Allow some time for ffmpeg to finish its buffer and write trailer
-                command.kill('SIGTERM');
-
-                // Set a timeout to force kill if it doesn't exit
-                setTimeout(() => {
-                    // Check if it's still in our map (meaning it hasn't emitted 'end'/'error' yet)
-                    if (this.activeRecordings.has(id)) {
-                        recorderLogger.warn(`Feed ${id} recording did not exit in time, forcing SIGKILL.`);
-                        command.kill('SIGKILL'); // Force kill
-                        this.activeRecordings.delete(id); // Clean up map manually if needed
-                    }
-                }, 5000);
-
-                this.activeRecordings.delete(id);
-            }
-        }
-
-        // Start new feeds
-        for (const feed of feeds) {
-            if (!this.activeRecordings.has(feed.id)) {
-                this.startRecording(feed);
+    private async handleMotion(feedId: number) {
+        if (this.activeRecordings.has(feedId)) {
+            // Extend recording
+            recorderLogger.debug({ feedId }, 'Motion continues, extending recording timeout');
+            const session = this.activeRecordings.get(feedId)!;
+            clearTimeout(session.timeout);
+            session.timeout = setTimeout(() => this.stopRecording(feedId), this.RECORDING_TIMEOUT_MS);
+        } else {
+            // Start new recording
+            recorderLogger.info({ feedId }, 'Motion detected, starting recording');
+            try {
+                const feed = await FeedModel.getFeedById(feedId);
+                if (feed) {
+                    this.startRecording(feed);
+                }
+            } catch (err) {
+                recorderLogger.error({ err, feedId }, 'Failed to start recording');
             }
         }
     }
 
     private startRecording(feed: any) {
-        const lastStart = this.lastStartAttempt.get(feed.id) || 0;
-        const now = Date.now();
-        if (now - lastStart < 10000) { // 10s cooldown
-            recorderLogger.debug({ feedId: feed.id }, `Skipping start for feed ${feed.name} (cooldown active)`);
-            return;
-        }
-        this.lastStartAttempt.set(feed.id, now);
-
-        recorderLogger.info({ feedId: feed.id, name: feed.name }, `Starting recording`);
         const feedDir = path.join(RECORDINGS_DIR, feed.id.toString());
-
         if (!fs.existsSync(feedDir)) {
             fs.mkdirSync(feedDir, { recursive: true });
         }
 
-        // FFmpeg command to segment video
-        // FFmpeg command to segment video
-        const isRtsp = feed.rtsp_url.startsWith('rtsp');
-        const inputOptions = isRtsp ? ['-rtsp_transport tcp'] : ['-stream_loop -1', '-re']; // 20s timeout
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `${timestamp}.mp4`;
+        const filePath = path.join(feedDir, filename);
 
-        const url = feed.rtsp_url.startsWith('file://')
-            ? feed.rtsp_url.replace('file:///', '').replace('file://', '')
-            : MediaProxyService.getInstance().getProxyUrl(feed);
+        // ALWAYS use the proxy for stability
+        const url = MediaProxyService.getInstance().getProxyUrl(feed);
+        const isRtsp = url.startsWith('rtsp');
+
+        const inputOptions = isRtsp ? ['-rtsp_transport tcp'] : [];
 
         const command = ffmpeg(url)
             .inputOptions(inputOptions)
             .outputOptions([
-                '-c:v copy',            // Stream copy (zero CPU usage)
-                '-an',                  // Disable audio (save resources)
-                '-movflags +faststart', // Essential for web playback start
-
-                '-f segment',
-                '-segment_time 600',   // 10 minutes
-                '-segment_format mp4',
-                '-reset_timestamps 1',
-                '-strftime 1',
+                '-c:v copy',            // Stream copy (zero CPU)
+                '-an',                  // No audio
+                '-movflags +faststart', // Web playback friendly
             ])
-            .output(path.join(feedDir, '%Y-%m-%d_%H-%M-%S.mp4'))
+            .output(filePath)
             .on('start', (cmdLine) => {
-                recorderLogger.info({ feedId: feed.id, cmd: cmdLine }, `Recording started`);
-
-                // EXPLICIT PID TRACKING
-                const pid = (command as any).ffmpegProc.pid;
-                recorderLogger.debug(`[Recorder] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
-
-                // Monkey-patch kill to ensure we use process.kill
-                const originalKill = command.kill.bind(command);
-                command.kill = (signal = 'SIGKILL') => {
-                    recorderLogger.debug(`[Recorder] Force killing FFmpeg PID: ${pid}`);
-                    try {
-                        if (pid) process.kill(pid, 'SIGKILL');
-                    } catch (e: any) {
-                        if (e.code !== 'ESRCH') {
-                            recorderLogger.error({ err: e, pid }, `[Recorder] Failed to kill process`);
-                        }
-                    }
-                    return originalKill(signal);
-                };
-            })
-            .on('stderr', (line) => {
-                // console.log(`Recording stderr: ${line}`);
+                recorderLogger.info({ feedId: feed.id, file: filename }, 'Recording started');
             })
             .on('error', (err) => {
-                recorderLogger.error({ err, feedId: feed.id }, `Recording error for ${feed.name}`);
-                // CRITICAL FIX: Force kill to cleanup
-                command.kill('SIGKILL');
-                this.activeRecordings.delete(feed.id);
+                recorderLogger.error({ err, feedId: feed.id }, 'Recording error');
+                this.stopRecording(feed.id, true);
             })
             .on('end', () => {
-                recorderLogger.info({ feedId: feed.id }, `Recording ended for ${feed.name}`);
-                this.activeRecordings.delete(feed.id);
+                recorderLogger.info({ feedId: feed.id }, 'Recording file closed');
             });
 
         command.run();
 
+        const timeout = setTimeout(() => this.stopRecording(feed.id), this.RECORDING_TIMEOUT_MS);
 
-        this.activeRecordings.set(feed.id, command);
+        this.activeRecordings.set(feed.id, {
+            command,
+            timeout,
+            feedId: feed.id,
+            startTime: Date.now()
+        });
     }
 
+    private stopRecording(feedId: number, force = false) {
+        const session = this.activeRecordings.get(feedId);
+        if (!session) return;
+
+        recorderLogger.info({ feedId }, 'Stopping recording (timeout or force)');
+
+        clearTimeout(session.timeout);
+
+        // Gentle stop first
+        if (!force) {
+            session.command.kill('SIGTERM');
+
+            // Force kill watchdog
+            setTimeout(() => {
+                // If it's still running (we can't easily check state on fluent-ffmpeg object, 
+                // but if we wanted to be robust we'd track PID). 
+                // For now, valid fire-and-forget kill logic:
+                try {
+                    session.command.kill('SIGKILL');
+                } catch (e) { }
+            }, 2000);
+        } else {
+            session.command.kill('SIGKILL');
+        }
+
+        this.activeRecordings.delete(feedId);
+    }
+
+    public async refresh() {
+        recorderLogger.info('Refreshing recordings (No-op in event driven mode)');
+    }
+
+    public async stop() {
+        recorderLogger.info('Stopping all active recordings...');
+        for (const [id, session] of this.activeRecordings) {
+            clearTimeout(session.timeout);
+            session.command.kill('SIGKILL');
+        }
+        this.activeRecordings.clear();
+    }
+
+    // Reuse existing logic for cleaning old files
     private async cleanupOldRecordings() {
         recorderLogger.info('Running cleanup job...');
         const now = Date.now();
-
-        // Default 24 hours
-        let maxAge = 24 * 60 * 60 * 1000;
+        let maxAge = 24 * 60 * 60 * 1000; // Default 24h
 
         try {
-            // Lazy load SettingsModel to avoid circular dependencies if any
-            // (Though importing at top level is usually fine in this project structure)
             const settings = await SettingsModel.getAllSettings();
-            if (settings.recording_retention) {
-                const hours = settings.recording_retention;
-                if (hours > 0) {
-                    maxAge = hours * 60 * 60 * 1000;
-                    recorderLogger.info({ hours }, `Using configured retention`);
-                }
+            if (settings.recording_retention && settings.recording_retention > 0) {
+                maxAge = settings.recording_retention * 60 * 60 * 1000;
             }
-        } catch (err) {
-            recorderLogger.error({ err }, 'Failed to load retention settings, using default');
-        }
+        } catch (err) { /* ignore */ }
 
         const processDir = (dir: string) => {
+            if (!fs.existsSync(dir)) return;
             const files = fs.readdirSync(dir);
             for (const file of files) {
                 const filePath = path.join(dir, file);
                 const stat = fs.statSync(filePath);
-
                 if (stat.isDirectory()) {
                     processDir(filePath);
                 } else {
                     if (now - stat.mtimeMs > maxAge) {
-                        recorderLogger.info({ filePath }, `Deleting old file`);
                         fs.unlinkSync(filePath);
                     }
                 }
@@ -245,13 +238,15 @@ export class RecorderManager {
     async getRecordings(feedId: number) {
         const feedDir = path.join(RECORDINGS_DIR, feedId.toString());
         try {
+            if (!fs.existsSync(feedDir)) return [];
+
             const files = await fs.promises.readdir(feedDir);
             return files
                 .filter(f => f.endsWith('.mp4'))
                 .map(f => ({
                     filename: f,
                     url: `/recordings/${feedId}/${f}`,
-                    timestamp: f.replace('.mp4', '') // Simple timestamp parsing
+                    timestamp: f.replace('.mp4', '')
                 }))
                 .sort((a, b) => b.filename.localeCompare(a.filename));
         } catch (error) {

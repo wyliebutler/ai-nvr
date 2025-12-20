@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { MediaProxyService } from './media-proxy';
 import { logger } from './utils/logger';
+import { EventBus } from './utils/event-bus';
 
 const detectLogger = logger.child({ module: 'detector' });
 
@@ -215,10 +216,11 @@ export class DetectorManager {
                         return originalKill(signal);
                     };
                 })
-                .on('stderr', (line) => {
-                    // Update last active time
+                .on('progress', () => {
+                    // Update last active time on every progress event (heartbeat)
                     this.lastActive.set(feed.id, Date.now());
-
+                })
+                .on('stderr', (line) => {
                     if (line.includes('pts_time')) {
                         // Verbose motion log - useful for calibration but spammy in prod
                         // detectLogger.trace({ feedId: feed.id, line }, 'Motion debug');
@@ -261,21 +263,20 @@ export class DetectorManager {
         const intervalMinutes = settings.notification_interval ?? 15;
         const cooldownMs = intervalMinutes * 60 * 1000;
 
-        // 2. Check cooldown BEFORE locking to fail fast
-        if (now - last < cooldownMs) {
-            // console.log(`[Motion] Cooldown active for feed ${feed.id} (${Math.ceil((cooldownMs - (now - last))/1000)}s remaining)`);
-            return;
-        }
 
         // 3. Acquire Lock
         this.processing.add(feed.id);
 
         try {
+            // Emit raw motion event for other systems (e.g. Recorder)
+            EventBus.getInstance().emit('motion:detected', { feedId: feed.id });
+
             // Double check inside lock (though atomic enough in JS single thread loop, good practice)
             if (now - this.lastNotification.get(feed.id)! < cooldownMs) return;
 
             detectLogger.info({ feedId: feed.id, name: feed.name }, 'Motion detected! Sending notification...');
             this.lastNotification.set(feed.id, now);
+
 
             const snapshotPath = await this.captureSnapshot(feed);
             await this.sendNotification(feed, snapshotPath);

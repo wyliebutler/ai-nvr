@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import util from 'util';
+import { StreamManager } from './stream';
 import { DetectorManager } from './detector';
 import { RecorderManager } from './recorder';
 import { logger } from './utils/logger';
@@ -12,9 +13,9 @@ export class ZombieReaper {
     private isRunning: boolean = false;
 
     private constructor() {
-        // Run immediately on start, then every 5 minutes
+        // Run immediately on start, then every 1 minute
         this.reap();
-        setInterval(() => this.reap(), 5 * 60 * 1000);
+        setInterval(() => this.reap(), 60 * 1000);
     }
 
     public static getInstance(): ZombieReaper {
@@ -34,16 +35,24 @@ export class ZombieReaper {
             // ps -eo pid,comm on Linux shows PID and command name
             // We use 'pgrep -f ffmpeg' or similar, but let's stick to ps for better compat in some docker containers
             // Actually 'ps -eo pid,args' gives full command which is safer to identify our ffmpegs
-            const { stdout } = await execAsync('ps -eo pid,args');
+            // Get all ffmpeg PIDs running on the system with elapsed time
+            // 'ps -eo pid,etimes,args' gives PID, elapsed seconds, and full command
+            const { stdout } = await execAsync('ps -eo pid,etimes,args');
             const lines = stdout.split('\n');
 
-            const osPids: number[] = [];
+            const osPids: Map<number, number> = new Map(); // Map PID -> Elapsed
             for (const line of lines) {
-                if (line.includes('ffmpeg') && !line.includes('defunct')) {
+                if (line.includes('ffmpeg') && !line.includes('defunct') && !line.includes('ps -eo')) {
                     const parts = line.trim().split(/\s+/);
                     const pid = parseInt(parts[0], 10);
-                    if (!isNaN(pid)) {
-                        osPids.push(pid);
+                    const elapsed = parseInt(parts[1], 10);
+
+                    if (!isNaN(pid) && !isNaN(elapsed)) {
+                        osPids.set(pid, elapsed);
+                        // TEMPORARY DEBUG
+                        if (line.includes('ffmpeg')) {
+                            reaperLogger.info({ pid, elapsed, line: line.substring(0, 50) }, 'Reaper Parsed Process');
+                        }
                     }
                 }
             }
@@ -51,10 +60,20 @@ export class ZombieReaper {
             // Get Allowlist
             const detectorPids = DetectorManager.getInstance().getActivePids();
             const recorderPids = RecorderManager.getInstance().getActivePids();
-            const allowedPids = new Set([...detectorPids, ...recorderPids]);
+            const streamPids = StreamManager.getInstance().getActivePids();
+            const allowedPids = new Set([...detectorPids, ...recorderPids, ...streamPids]);
 
-            // Find Zombies
-            const zombies = osPids.filter(pid => !allowedPids.has(pid));
+            // Find Zombies (ignore young processes < 60s)
+            const zombies: number[] = [];
+            for (const [pid, elapsed] of osPids) {
+                if (!allowedPids.has(pid)) {
+                    if (elapsed < 60) {
+                        reaperLogger.debug({ pid, elapsed }, 'Skipping potential zombie (too young)');
+                        continue;
+                    }
+                    zombies.push(pid);
+                }
+            }
 
             if (zombies.length > 0) {
                 reaperLogger.warn(`Found ${zombies.length} zombie ffmpeg processes. Terminating...`);
