@@ -63,6 +63,13 @@ export class ZombieReaper {
             const streamPids = StreamManager.getInstance().getActivePids();
             const allowedPids = new Set([...detectorPids, ...recorderPids, ...streamPids]);
 
+            reaperLogger.info({
+                allowedCount: allowedPids.size,
+                detectors: detectorPids,
+                recorders: recorderPids,
+                streams: streamPids
+            }, 'Reaper Allowlist');
+
             // Find Zombies (ignore young processes < 60s)
             const zombies: number[] = [];
             for (const [pid, elapsed] of osPids) {

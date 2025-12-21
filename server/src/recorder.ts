@@ -21,6 +21,7 @@ interface ActiveRecording {
     timeout: NodeJS.Timeout;
     feedId: number;
     startTime: number;
+    pid?: number;
 }
 
 export class RecorderManager {
@@ -47,8 +48,9 @@ export class RecorderManager {
     public getActivePids(): number[] {
         const pids: number[] = [];
         for (const session of this.activeRecordings.values()) {
-            const pid = (session.command as any).ffmpegProc?.pid;
-            if (pid) pids.push(pid);
+            if (session.pid) {
+                pids.push(session.pid);
+            }
         }
         return pids;
     }
@@ -143,22 +145,41 @@ export class RecorderManager {
                 recorderLogger.info({ feedId: feed.id, file: filename }, 'Recording started');
             })
             .on('error', (err) => {
-                recorderLogger.error({ err, feedId: feed.id }, 'Recording error');
-                this.stopRecording(feed.id, true);
+                const currentSession = this.activeRecordings.get(feed.id);
+                if (currentSession && currentSession.command === command) {
+                    recorderLogger.error({ err, feedId: feed.id }, 'Recording error');
+                    this.stopRecording(feed.id, true);
+                } else {
+                    recorderLogger.warn({ feedId: feed.id, err }, 'Ignored error from zombie recording process');
+                }
             })
             .on('end', () => {
                 recorderLogger.info({ feedId: feed.id }, 'Recording file closed');
+                // stopRecording handles cleanup, but we should only call it if valid
+                const currentSession = this.activeRecordings.get(feed.id);
+                if (currentSession && currentSession.command === command) {
+                    // If it ended naturally (CMD killed it?), we might want to clear timeout?
+                    // stopRecording does that.
+                    // But if it ended unexpectedly, we treat as stop?
+                    // Actually startRecording relies on timeout to stop. 
+                    // If it ends early, we should cleanup.
+                    this.stopRecording(feed.id, true);
+                }
             });
 
         command.run();
 
         const timeout = setTimeout(() => this.stopRecording(feed.id), this.RECORDING_TIMEOUT_MS);
 
+        // Explicitly track PID
+        const pid = (command as any).ffmpegProc?.pid;
+
         this.activeRecordings.set(feed.id, {
             command,
             timeout,
             feedId: feed.id,
-            startTime: Date.now()
+            startTime: Date.now(),
+            pid
         });
     }
 

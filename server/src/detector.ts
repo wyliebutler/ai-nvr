@@ -13,20 +13,30 @@ const detectLogger = logger.child({ module: 'detector' });
 
 export class DetectorManager {
     private static instance: DetectorManager;
+    private activeSnapshots: Set<ffmpeg.FfmpegCommand> = new Set();
     private activeDetectors: Map<number, ffmpeg.FfmpegCommand> = new Map();
     private lastNotification: Map<number, number> = new Map();
     private lastActive: Map<number, number> = new Map();
     private lastStartAttempt: Map<number, number> = new Map();
     private processing: Set<number> = new Set();
     private starting: Set<number> = new Set();
+    private activePids: Map<number, number> = new Map(); // FeedID -> PID
     private mediaProxy: MediaProxyService;
 
     public getActivePids(): number[] {
         const pids: number[] = [];
-        for (const command of this.activeDetectors.values()) {
+
+        // Add explicit tracking
+        for (const pid of this.activePids.values()) {
+            pids.push(pid);
+        }
+
+        // Also check snapshot pids (less critical but good to have)
+        for (const command of this.activeSnapshots) {
             const pid = (command as any).ffmpegProc?.pid;
             if (pid) pids.push(pid);
         }
+
         detectLogger.debug({ count: pids.length, pids }, 'getActivePids called');
         return pids;
     }
@@ -103,6 +113,7 @@ export class DetectorManager {
                 detectLogger.info(`Removing detector for feed ${id}`);
                 command.kill('SIGTERM');
                 this.activeDetectors.delete(id);
+                this.activePids.delete(id);
                 this.lastActive.delete(id);
                 continue;
             }
@@ -115,6 +126,7 @@ export class DetectorManager {
                 detectLogger.warn(`Detector for feed ${id} appears stuck (no activity for 2m). Restarting...`);
                 command.kill('SIGKILL');
                 this.activeDetectors.delete(id);
+                this.activePids.delete(id);
                 this.lastActive.delete(id);
                 // It will be restarted in the next loop below
             }
@@ -200,7 +212,12 @@ export class DetectorManager {
 
                     // EXPLICIT PID TRACKING
                     const pid = (command as any).ffmpegProc.pid;
-                    detectLogger.debug(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+                    if (pid) {
+                        this.activePids.set(feed.id, pid);
+                        detectLogger.debug(`[Detector] Started FFmpeg process for ${feed.name} (PID: ${pid})`);
+                    } else {
+                        detectLogger.error(`[Detector] Started FFmpeg for ${feed.name} but PID is missing!`);
+                    }
 
                     // Monkey-patch kill to ensure we use process.kill
                     const originalKill = command.kill.bind(command);
@@ -231,11 +248,19 @@ export class DetectorManager {
                     detectLogger.error({ feedId: feed.id, err }, 'Detection error');
                     // CRITICAL FIX: Force kill the process to prevent zombies when error occurs but process hangs
                     command.kill('SIGKILL');
-                    this.activeDetectors.delete(feed.id);
+
+                    // Only cleanup if this is the active detector
+                    if (this.activeDetectors.get(feed.id) === command) {
+                        this.activeDetectors.delete(feed.id);
+                        this.activePids.delete(feed.id);
+                    }
                 })
                 .on('end', () => {
                     detectLogger.info({ feedId: feed.id }, 'Detection process ended');
-                    this.activeDetectors.delete(feed.id);
+                    if (this.activeDetectors.get(feed.id) === command) {
+                        this.activeDetectors.delete(feed.id);
+                        this.activePids.delete(feed.id);
+                    }
                 });
 
             command.run();
@@ -308,16 +333,51 @@ export class DetectorManager {
             const url = feed.rtsp_url.startsWith('file://') ? feed.rtsp_url.replace('file:///', '').replace('file://', '') : feed.rtsp_url;
             const isRtsp = url.startsWith('rtsp');
 
-            ffmpeg(url)
+            let completed = false;
+            let timeout: NodeJS.Timeout;
+
+            const command = ffmpeg(url)
                 .inputOptions(isRtsp ? ['-rtsp_transport tcp'] : [])
                 .outputOptions(['-vframes 1', '-f image2'])
                 .output(outputPath)
-                .on('end', () => resolve(outputPath))
+                .on('start', (cmdLine) => {
+                    // Track PID
+                    const pid = (command as any).ffmpegProc?.pid;
+                    if (pid) detectLogger.debug({ feedId: feed.id, pid }, 'Snapshot process started');
+                })
+                .on('end', () => {
+                    if (completed) return;
+                    completed = true;
+                    clearTimeout(timeout);
+                    this.activeSnapshots.delete(command);
+                    resolve(outputPath);
+                })
                 .on('error', (err) => {
+                    if (completed) return;
+                    completed = true;
+                    clearTimeout(timeout);
+                    this.activeSnapshots.delete(command);
                     detectLogger.error({ err, feedId: feed.id }, `Snapshot capture failed for ${feed.name}`);
                     resolve(null);
-                })
-                .run();
+                });
+
+            // Track globally
+            this.activeSnapshots.add(command);
+
+            command.run();
+
+            // Safety timeout (20s)
+            timeout = setTimeout(() => {
+                if (!completed) {
+                    completed = true;
+                    detectLogger.warn({ feedId: feed.id }, 'Snapshot capture timed out, killing process');
+                    try {
+                        command.kill('SIGKILL');
+                    } catch (e) { /* ignore */ }
+                    this.activeSnapshots.delete(command);
+                    resolve(null);
+                }
+            }, 20000);
         });
     }
 

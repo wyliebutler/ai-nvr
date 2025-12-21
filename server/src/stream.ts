@@ -37,11 +37,12 @@ export class StreamManager {
                 pids.push(session.pid);
             }
         }
+        console.log(`[StreamManager] getActivePids called, found: ${pids.length}`, pids);
         return pids;
     }
 
     private handleConnection(ws: WebSocket, req: IncomingMessage) {
-        console.log(`Incoming WS connection: ${req.url}`);
+        console.log(`Incoming WS connection: ${req.url} `);
         const url = req.url; // e.g., /stream?url=rtsp://...
         if (!url) {
             ws.close();
@@ -56,11 +57,11 @@ export class StreamManager {
             return;
         }
 
-        console.log(`Client connected to stream: ${rtspUrl}`);
+        console.log(`Client connected to stream: ${rtspUrl} `);
         this.addClientToStream(rtspUrl, ws);
 
         ws.on('close', () => {
-            console.log(`Client disconnected from stream: ${rtspUrl}`);
+            console.log(`Client disconnected from stream: ${rtspUrl} `);
             this.removeClientFromStream(rtspUrl, ws);
         });
     }
@@ -171,7 +172,7 @@ export class StreamManager {
             /*
             const proxyUrl = MediaProxyService.getInstance().getProxyUrlByOriginal(rtspUrl);
             if (proxyUrl) {
-                console.log(`[Stream] Switching ${rtspUrl} to proxy: ${proxyUrl}`);
+                console.log(`[Stream] Switching ${ rtspUrl } to proxy: ${ proxyUrl } `);
                 streamSource = proxyUrl;
             }
             */
@@ -214,17 +215,17 @@ export class StreamManager {
                 // EXPLICIT PID TRACKING
                 const pid = (command as any).ffmpegProc.pid;
                 session.pid = pid; // Store PID in session
-                console.log(`[Stream] Started FFmpeg process for ${rtspUrl} (PID: ${pid})`);
+                console.log(`[Stream] Started FFmpeg process for ${rtspUrl}(PID: ${pid})`);
 
                 // Monkey-patch kill to ensure we use process.kill
                 const originalKill = command.kill.bind(command);
                 command.kill = (signal = 'SIGKILL') => {
-                    console.log(`[Stream] Force killing FFmpeg PID: ${pid}`);
+                    console.log(`[Stream] Force killing FFmpeg PID: ${pid} `);
                     try {
                         if (pid) process.kill(pid, 'SIGKILL');
                     } catch (e: any) {
                         if (e.code !== 'ESRCH') {
-                            console.error(`[Stream] Failed to kill process ${pid}:`, e);
+                            console.error(`[Stream] Failed to kill process ${pid}: `, e);
                         }
                     }
                     return originalKill(signal);
@@ -238,7 +239,7 @@ export class StreamManager {
                 this.sessions.delete(rtspUrl);
             })
             .on('stderr', (line) => {
-                // console.log(`Stream FFmpeg stderr: ${line}`);
+                // console.log(`Stream FFmpeg stderr: ${ line } `);
             })
             .on('end', () => {
                 console.log('FFmpeg process ended');
@@ -251,7 +252,7 @@ export class StreamManager {
         const stream = command.pipe();
 
         stream.on('data', (chunk: Buffer) => {
-            // console.log(`Received stream chunk: ${chunk.length} bytes`);
+            // console.log(`Received stream chunk: ${ chunk.length } bytes`);
 
             // Re-fetch session to be safe, though usage of 'session' variable captured in closure is also fine
             // provided the session reference doesn't change.
